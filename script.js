@@ -37,7 +37,6 @@ function clearImages() {
   container.innerHTML = '';
 }
 
-// Improved: Grid with strong jitter, 10% larger images, and fade-in
 function fillScreenWithImages() {
   clearImages();
 
@@ -57,6 +56,17 @@ function fillScreenWithImages() {
   const baseSize = Math.max(cellWidth, cellHeight) * 1.7; // was 1.55, now 1.7
 
   let imgIndex = 0;
+  let loadedCount = 0;
+  const allImages = [];
+
+  function checkAllLoadedAndFadeOverlay() {
+    if (loadedCount === numImages) {
+      setTimeout(() => {
+        fadeInOverlay();
+      }, 1000); // Wait 1s after all images loaded
+    }
+  }
+
   for (let row = 0; row < gridRows; row++) {
     for (let col = 0; col < gridCols; col++) {
       if (imgIndex >= numImages) break;
@@ -64,8 +74,6 @@ function fillScreenWithImages() {
       const img = document.createElement('img');
       img.src = shuffled[imgIndex];
       img.alt = "";
-      img.style.opacity = "0";
-      img.style.transition = "opacity 1.7s cubic-bezier(0.63,0.01,0.33,1.01)";
 
       // Position in a grid cell, but with strong jitter (up to 36% of cell size)
       let x = col * cellWidth + cellWidth / 2;
@@ -85,6 +93,7 @@ function fillScreenWithImages() {
       const size = baseSize * (0.85 + 0.3 * pseudoRandom(imgIndex * 19)) * 1.10; // +10%
       img.style.width = `${size}px`;
       img.style.height = "auto";
+      img.style.position = "absolute";
       img.style.left = `${x - size / 2}px`;
       img.style.top = `${y - size / 2}px`;
 
@@ -93,15 +102,73 @@ function fillScreenWithImages() {
       img.style.transform = `rotate(${angle}deg)`;
       img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(imgIndex * 29))}`;
 
+      // Fade-in initial state
+      img.style.opacity = "0";
+      img.style.transition = "opacity 1.7s cubic-bezier(0.63,0.01,0.33,1.01)";
+
+      img.addEventListener('load', () => {
+        loadedCount++;
+        checkAllLoadedAndFadeOverlay();
+      });
+
+      // For cached images: trigger load if already loaded
+      if (img.complete) {
+        loadedCount++;
+        checkAllLoadedAndFadeOverlay();
+      }
+
       container.appendChild(img);
 
-      // Fade in with stagger
-      setTimeout(() => {
+      // Use requestAnimationFrame for reliable fade-in
+      requestAnimationFrame(() => {
         img.style.opacity = "1";
-      }, 120 + Math.floor(imgIndex * 40 + pseudoRandom(imgIndex + 7777) * 200));
+      });
 
       imgIndex++;
+      allImages.push(img);
     }
+  }
+}
+
+function fadeInOverlay() {
+  // Choose overlay image based on screen width
+  const isMobile = window.innerWidth <= 700; // You may adjust this threshold if needed
+  const overlaySrc = isMobile ? 'image overlaymobile.jpg' : 'image overlaydesktop.jpg';
+
+  let overlay = document.getElementById('overlay-desktop-img');
+  if (!overlay) {
+    overlay = document.createElement('img');
+    overlay.id = 'overlay-desktop-img';
+    overlay.src = overlaySrc;
+    overlay.alt = "Overlay";
+    overlay.style.position = "fixed";
+    overlay.style.left = "0";
+    overlay.style.top = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.zIndex = "9999";
+    overlay.style.opacity = "0";
+    overlay.style.pointerEvents = "none";
+    overlay.style.transition = "opacity 2.5s cubic-bezier(0.63,0.01,0.33,1.01)";
+    document.body.appendChild(overlay);
+    // When loaded, fade in
+    overlay.onload = () => {
+      requestAnimationFrame(() => {
+        overlay.style.opacity = "1";
+      });
+    };
+    // If already loaded (cached), fade in immediately
+    if (overlay.complete) {
+      requestAnimationFrame(() => {
+        overlay.style.opacity = "1";
+      });
+    }
+  } else {
+    overlay.src = overlaySrc;
+    overlay.style.opacity = "0";
+    requestAnimationFrame(() => {
+      overlay.style.opacity = "1";
+    });
   }
 }
 
