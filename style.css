@@ -14,6 +14,7 @@ body {
   height: 100vh;
   pointer-events: none;
   z-index: 0;
+  background: url('background.jpg') center center / cover no-repeat;
 }
 
 .image-container img {

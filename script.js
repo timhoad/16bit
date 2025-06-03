@@ -48,9 +48,9 @@ function fillScreenWithImages() {
     const px = pseudoRandom(prSeed + 1);
     const py = pseudoRandom(prSeed + 2);
 
-    // Size: 18% - 40% of the smaller dimension
-    const minSize = Math.min(screenWidth, screenHeight) * 0.18;
-    const maxSize = Math.min(screenWidth, screenHeight) * 0.40;
+    // Size: 34% - 65% of the smaller dimension (increased from previous 18-40)
+    const minSize = Math.min(screenWidth, screenHeight) * 0.34;
+    const maxSize = Math.min(screenWidth, screenHeight) * 0.65;
     const size = minSize + (maxSize - minSize) * pseudoRandom(prSeed + 3);
 
     img.style.width = `${size}px`;
