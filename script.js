@@ -31,34 +31,69 @@ function seededShuffle(array, seed) {
   return result;
 }
 
-// Ensure no adjacent anchor images are the same (corners & edges)
-function ensureNoAdjacentDuplicates(shuffled, anchorsCount) {
-  // Anchor adjacency map: which anchor indices are 'neighbors'
-  const neighborMap = {
-    0: [1,3],
-    1: [0,2],
-    2: [1,4],
-    3: [0,5],
-    4: [2,7],
-    5: [3,6],
-    6: [5,7],
-    7: [4,6],
-  };
+// Anchor adjacency map: which anchor indices are 'neighbors'
+const neighborMap = {
+  0: [1,3],
+  1: [0,2],
+  2: [1,4],
+  3: [0,5],
+  4: [2,7],
+  5: [3,6],
+  6: [5,7],
+  7: [4,6],
+};
+
+// For this specific swap request: if two Donkey Kong images
+// (assuming Donkey Kong is image1) are both in anchors[0] and anchors[1],
+// swap one with a Red Ghost (assuming Red Ghost is image10 or image11).
+function swapDonkeyKongWithRedGhost(shuffled, anchorsCount) {
+  // Find indices of Donkey Kong images (image1.png).
+  let donkeyKong = 'images/image1.png';
+  let redGhosts = ['images/image10.png', 'images/image11.png'];
+  let dkIndices = [];
   for (let i = 0; i < anchorsCount; i++) {
-    for (let n of neighborMap[i] || []) {
-      if (shuffled[i] === shuffled[n]) {
-        // Find a non-anchor, non-duplicate image to swap in
-        for (let j = anchorsCount; j < shuffled.length; j++) {
-          if (
-            shuffled[j] !== shuffled[i] &&
-            !Object.values(neighborMap).some(list =>
-              list.includes(j) && shuffled[j] === shuffled[list.find(l => l !== j)])
-          ) {
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-            break;
+    if (shuffled[i] === donkeyKong) dkIndices.push(i);
+  }
+  if (dkIndices.length >= 2) {
+    // Find a Red Ghost elsewhere in the list (prefer non-anchor, but allow anchor if needed).
+    for (let j = anchorsCount; j < shuffled.length; j++) {
+      if (redGhosts.includes(shuffled[j])) {
+        // Swap the second Donkey Kong (not the first/top-left) with a Red Ghost.
+        [shuffled[dkIndices[1]], shuffled[j]] = [shuffled[j], shuffled[dkIndices[1]]];
+        break;
+      }
+    }
+  }
+  return shuffled;
+}
+
+function ensureNoAdjacentAnchorDuplicates(shuffled, anchorsCount) {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < anchorsCount; i++) {
+      for (let n of neighborMap[i] || []) {
+        if (shuffled[i] === shuffled[n]) {
+          // Find a non-anchor, non-duplicate image to swap in
+          for (let j = anchorsCount; j < shuffled.length; j++) {
+            // Make sure not swapping in a duplicate at another anchor
+            let safe = true;
+            for (let k = 0; k < anchorsCount; k++) {
+              if (k !== i && shuffled[j] === shuffled[k]) {
+                safe = false;
+                break;
+              }
+            }
+            if (safe && shuffled[j] !== shuffled[i]) {
+              [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+              changed = true;
+              break;
+            }
           }
         }
+        if (changed) break;
       }
+      if (changed) break;
     }
   }
   return shuffled;
@@ -103,7 +138,10 @@ function fillScreenWithImages() {
   ];
 
   // Ensure no adjacent anchors are identical
-  shuffled = ensureNoAdjacentDuplicates(shuffled, anchors.length);
+  shuffled = ensureNoAdjacentAnchorDuplicates(shuffled, anchors.length);
+
+  // Swap one Donkey Kong in the anchors with a Red Ghost if both are present
+  shuffled = swapDonkeyKongWithRedGhost(shuffled, anchors.length);
 
   // Place each image
   for (let i = 0; i < shuffled.length; i++) {
@@ -111,35 +149,31 @@ function fillScreenWithImages() {
     img.src = shuffled[i];
     img.alt = "";
     img.style.opacity = "0";
-    img.style.transition = "opacity 1.8s cubic-bezier(0.63,0.01,0.33,1.01)";
+    img.style.transition = "opacity 2.2s cubic-bezier(0.63,0.01,0.33,1.01)";
 
     let x, y;
     if (i < anchors.length) {
       [x, y] = anchors[i];
-      // Small inward offset so corners/edges are covered well and image is not mostly offscreen
       const offset = Math.min(screenWidth, screenHeight) * 0.08;
       if (x === 0) x += offset;
       if (x === screenWidth - 1) x -= offset;
       if (y === 0) y += offset;
       if (y === screenHeight - 1) y -= offset;
-      // Add a bit of random jitter for even anchors
       x += (pseudoRandom(i + 1111) - 0.5) * offset * 0.8;
       y += (pseudoRandom(i + 2222) - 0.5) * offset * 0.8;
     } else {
-      // Spiral, but with extra deterministic jitter for less grid-like feel
       [x, y] = vogelSpiralPosition(
         i - anchors.length,
         shuffled.length - anchors.length,
         screenWidth,
         screenHeight,
-        0.46 // more jitter for more organic look
+        0.46
       );
       const jitter = Math.min(screenWidth, screenHeight) * 0.18;
       x += (pseudoRandom(i + 3333) - 0.5) * jitter;
       y += (pseudoRandom(i + 4444) - 0.5) * jitter;
     }
 
-    // Sizing: Edge/corner images a bit larger, others slightly smaller but still overlapping
     const minSize = Math.min(screenWidth, screenHeight) * (i < anchors.length ? 0.43 : 0.32);
     const maxSize = Math.min(screenWidth, screenHeight) * (i < anchors.length ? 0.6 : 0.44);
     const prSeed = 5555 + i * 777;
@@ -150,19 +184,17 @@ function fillScreenWithImages() {
     img.style.left = `${x - size / 2}px`;
     img.style.top = `${y - size / 2}px`;
 
-    // Rotation: -45 to +45 deg, deterministic (wider range for more randomness)
     const angle = -45 + 90 * pseudoRandom(prSeed + 4);
     img.style.transform = `rotate(${angle}deg)`;
 
-    // Deterministic z-index for layering variety
     img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(prSeed + 8))}`;
 
     container.appendChild(img);
 
-    // Fade-in with a stagger for a more fluid effect
-    setTimeout(() => {
+    // Ensure fade-in works by forcing a reflow before setting opacity to 1
+    requestAnimationFrame(() => {
       img.style.opacity = "1";
-    }, 120 + Math.floor(i * 45 + pseudoRandom(i + 7777) * 300));
+    });
   }
 }
 
