@@ -9,40 +9,52 @@ for (let i = 1; i <= imageCount; i++) {
   images.push(`images/image${i}.png`);
 }
 
-// Use a true random shuffle for different layouts on every reload
-function shuffle(array) {
+function seededShuffle(array, seed) {
   let result = array.slice();
   for (let i = result.length - 1; i > 0; i--) {
-    let j = Math.floor(Math.random() * (i + 1));
+    seed = (seed * 9301 + 49297) % 233280;
+    const j = Math.floor((seed / 233280) * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
+  // Try to avoid identical images adjacent in the array
+  for (let i = 1; i < result.length; i++) {
+    if (result[i] === result[i - 1]) {
+      let swap = i + 1;
+      while (swap < result.length && result[swap] === result[i]) swap++;
+      if (swap < result.length) {
+        [result[i], result[swap]] = [result[swap], result[i]];
+      }
+    }
+  }
   return result;
+}
+
+function pseudoRandom(seed) {
+  return ((Math.sin(seed) * 10000) % 1 + 1) % 1;
 }
 
 function clearImages() {
   container.innerHTML = '';
 }
 
+// Improved: Grid with strong jitter, 10% larger images, and fade-in
 function fillScreenWithImages() {
   clearImages();
 
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
-  const shuffled = shuffle(images);
+  const shuffled = seededShuffle(images, 12345);
 
-  // Set up a grid but fill only 90% of the width and height for less edge clustering
+  // Grid dimensions (force a square grid for equal spread)
   const numImages = shuffled.length;
-  const gridCols = Math.ceil(Math.sqrt(numImages * screenWidth / screenHeight));
+  const aspect = screenWidth / screenHeight;
+  const gridCols = Math.ceil(Math.sqrt(numImages * aspect));
   const gridRows = Math.ceil(numImages / gridCols);
 
-  const gridMarginX = screenWidth * 0.05;
-  const gridMarginY = screenHeight * 0.05;
-  const usableWidth = screenWidth - 2 * gridMarginX;
-  const usableHeight = screenHeight - 2 * gridMarginY;
-
-  const cellWidth = usableWidth / gridCols;
-  const cellHeight = usableHeight / gridRows;
-  const baseSize = Math.max(cellWidth, cellHeight) * 1.1; // 10% larger
+  // Image size (base) -- increased by 10%
+  const cellWidth = screenWidth / gridCols;
+  const cellHeight = screenHeight / gridRows;
+  const baseSize = Math.max(cellWidth, cellHeight) * 1.7; // was 1.55, now 1.7
 
   let imgIndex = 0;
   for (let row = 0; row < gridRows; row++) {
@@ -52,45 +64,41 @@ function fillScreenWithImages() {
       const img = document.createElement('img');
       img.src = shuffled[imgIndex];
       img.alt = "";
+      img.style.opacity = "0";
+      img.style.transition = "opacity 1.7s cubic-bezier(0.63,0.01,0.33,1.01)";
 
-      // Position within the grid cell, with jitter (up to 40% of cell size)
-      let x = gridMarginX + col * cellWidth + cellWidth / 2;
-      let y = gridMarginY + row * cellHeight + cellHeight / 2;
+      // Position in a grid cell, but with strong jitter (up to 36% of cell size)
+      let x = col * cellWidth + cellWidth / 2;
+      let y = row * cellHeight + cellHeight / 2;
+      const strongJitterX = (pseudoRandom(imgIndex * 7) - 0.5) * cellWidth * 0.36;
+      const strongJitterY = (pseudoRandom(imgIndex * 13) - 0.5) * cellHeight * 0.36;
+      x += strongJitterX;
+      y += strongJitterY;
 
-      const jitterX = (Math.random() - 0.5) * cellWidth * 0.4;
-      const jitterY = (Math.random() - 0.5) * cellHeight * 0.4;
-      x += jitterX;
-      y += jitterY;
+      // Clamp to keep 90% of image inside the screen
+      const marginX = baseSize * 0.45;
+      const marginY = baseSize * 0.45;
+      x = Math.max(marginX, Math.min(screenWidth - marginX, x));
+      y = Math.max(marginY, Math.min(screenHeight - marginY, y));
 
-      // Clamp so image stays within the usable area
-      const marginX = baseSize * 0.5;
-      const marginY = baseSize * 0.5;
-      x = Math.max(gridMarginX + marginX, Math.min(screenWidth - gridMarginX - marginX, x));
-      y = Math.max(gridMarginY + marginY, Math.min(screenHeight - gridMarginY - marginY, y));
-
-      // Size: 10% larger, with slight random variation
-      const size = baseSize * (0.98 + 0.1 * Math.random());
+      // 10% larger size and jitter
+      const size = baseSize * (0.85 + 0.3 * pseudoRandom(imgIndex * 19)) * 1.10; // +10%
       img.style.width = `${size}px`;
       img.style.height = "auto";
-      img.style.position = "absolute";
       img.style.left = `${x - size / 2}px`;
       img.style.top = `${y - size / 2}px`;
 
-      // Natural rotation and z-index
-      const angle = -20 + 40 * Math.random();
+      // Rotation & z-index
+      const angle = -35 + 70 * pseudoRandom(imgIndex * 23);
       img.style.transform = `rotate(${angle}deg)`;
-      img.style.zIndex = `${10 + Math.floor(10 * Math.random())}`;
-
-      // Fade-in initial state
-      img.style.opacity = "0";
-      img.style.transition = "opacity 2.0s cubic-bezier(0.63,0.01,0.33,1.01)";
+      img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(imgIndex * 29))}`;
 
       container.appendChild(img);
 
-      // Use requestAnimationFrame for reliable fade-in
-      requestAnimationFrame(() => {
+      // Fade in with stagger
+      setTimeout(() => {
         img.style.opacity = "1";
-      });
+      }, 120 + Math.floor(imgIndex * 40 + pseudoRandom(imgIndex + 7777) * 200));
 
       imgIndex++;
     }
