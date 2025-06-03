@@ -17,7 +17,7 @@ function seededShuffle(array, seed) {
     const j = Math.floor((seed / 233280) * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
-  // Ensure no two same images are adjacent
+  // Try to avoid identical images adjacent in the array
   for (let i = 1; i < result.length; i++) {
     if (result[i] === result[i - 1]) {
       // Find next different image and swap
@@ -29,6 +29,39 @@ function seededShuffle(array, seed) {
     }
   }
   return result;
+}
+
+// Ensure no adjacent anchor images are the same (corners & edges)
+function ensureNoAdjacentDuplicates(shuffled, anchorsCount) {
+  // Anchor adjacency map: which anchor indices are 'neighbors'
+  const neighborMap = {
+    0: [1,3],
+    1: [0,2],
+    2: [1,4],
+    3: [0,5],
+    4: [2,7],
+    5: [3,6],
+    6: [5,7],
+    7: [4,6],
+  };
+  for (let i = 0; i < anchorsCount; i++) {
+    for (let n of neighborMap[i] || []) {
+      if (shuffled[i] === shuffled[n]) {
+        // Find a non-anchor, non-duplicate image to swap in
+        for (let j = anchorsCount; j < shuffled.length; j++) {
+          if (
+            shuffled[j] !== shuffled[i] &&
+            !Object.values(neighborMap).some(list =>
+              list.includes(j) && shuffled[j] === shuffled[list.find(l => l !== j)])
+          ) {
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            break;
+          }
+        }
+      }
+    }
+  }
+  return shuffled;
 }
 
 // Deterministic "random" number in [0,1)
@@ -55,7 +88,7 @@ function fillScreenWithImages() {
 
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
-  const shuffled = seededShuffle(images, 12345);
+  let shuffled = seededShuffle(images, 12345);
 
   // 8 anchors for edges/corners
   const anchors = [
@@ -69,11 +102,16 @@ function fillScreenWithImages() {
     [screenWidth - 1, screenHeight - 1],
   ];
 
+  // Ensure no adjacent anchors are identical
+  shuffled = ensureNoAdjacentDuplicates(shuffled, anchors.length);
+
   // Place each image
   for (let i = 0; i < shuffled.length; i++) {
     const img = document.createElement('img');
     img.src = shuffled[i];
     img.alt = "";
+    img.style.opacity = "0";
+    img.style.transition = "opacity 1.8s cubic-bezier(0.63,0.01,0.33,1.01)";
 
     let x, y;
     if (i < anchors.length) {
@@ -120,6 +158,11 @@ function fillScreenWithImages() {
     img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(prSeed + 8))}`;
 
     container.appendChild(img);
+
+    // Fade-in with a stagger for a more fluid effect
+    setTimeout(() => {
+      img.style.opacity = "1";
+    }, 120 + Math.floor(i * 45 + pseudoRandom(i + 7777) * 300));
   }
 }
 

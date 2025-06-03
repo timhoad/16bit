@@ -23,6 +23,6 @@ body {
   border-radius: 6px;
   user-select: none;
   box-shadow: 0 2px 16px 0 rgba(0,0,0,0.07);
-  will-change: transform;
-  /* Slight drop shadow for visibility on mixed backgrounds */
+  will-change: transform, opacity;
+  opacity: 0;
 }
