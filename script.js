@@ -1,12 +1,18 @@
 const container = document.getElementById('imageContainer');
 const imageCount = 18; // Number of distinct images
-const totalCells = 36; // 6x6 grid
+const totalImages = 36; // 2x each image
 
-// Fill image array deterministically: each image twice, in order
+// Deterministically fill array with each image twice, in order
 const images = [];
 for (let i = 1; i <= imageCount; i++) {
   images.push(`images/image${i}.png`);
   images.push(`images/image${i}.png`);
+}
+
+// Deterministic hash for "random" values in [0,1)
+function pseudoRandom(seed) {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
 }
 
 function clearImages() {
@@ -16,38 +22,36 @@ function clearImages() {
 function fillScreenWithImages() {
   clearImages();
 
-  const cols = 6;
-  const rows = 6;
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
-  const slotWidth = screenWidth / cols;
-  const slotHeight = screenHeight / rows;
 
-  for (let index = 0; index < totalCells; index++) {
-    const src = images[index];
+  for (let i = 0; i < images.length; i++) {
     const img = document.createElement('img');
-    img.src = src;
+    img.src = images[i];
     img.alt = "";
 
-    const col = index % cols;
-    const row = Math.floor(index / cols);
+    // Deterministic "random" for position, size, angle
+    // Spread positions across the viewport, but allow overlap
+    const px = pseudoRandom(i * 13 + 1);
+    const py = pseudoRandom(i * 17 + 2);
 
-    // Deterministic size: vary by row and col, ensure overlap
-    // Sizes between 110% and 140% of the slot, based on grid position
-    const sizeFactor = 1.1 + ((col * 0.07 + row * 0.09) % 0.3); // range 1.1-1.4
-    const size = Math.max(slotWidth, slotHeight) * sizeFactor;
+    // Coverage: allow images to extend slightly past edges
+    const minSize = Math.min(screenWidth, screenHeight) * 0.18;
+    const maxSize = Math.min(screenWidth, screenHeight) * 0.38;
+    const size = minSize + (maxSize - minSize) * pseudoRandom(i * 23 + 3);
+
+    // X, Y position: from (-0.15*size) to (width/height - 0.85*size) so they can overlap edges
+    const x = -0.15 * size + px * (screenWidth - 0.7 * size);
+    const y = -0.15 * size + py * (screenHeight - 0.7 * size);
+
     img.style.width = `${size}px`;
-    img.style.height = `${size}px`;
+    img.style.left = `${x}px`;
+    img.style.top = `${y}px`;
+    img.style.height = "auto";
 
-    // Deterministic rotation: unique but fixed for each cell
-    const baseAngle = -25 + 10 * (col % 3) + 8 * (row % 4);
-    img.style.transform = `rotate(${baseAngle}deg)`;
-
-    // Position: center the image in its slot, but allow it to overlap for coverage
-    const offsetX = (size - slotWidth) / 2;
-    const offsetY = (size - slotHeight) / 2;
-    img.style.left = `${col * slotWidth - offsetX}px`;
-    img.style.top = `${row * slotHeight - offsetY}px`;
+    // Deterministic angle between -40 and +40
+    const angle = -40 + 80 * pseudoRandom(i * 31 + 7);
+    img.style.transform = `rotate(${angle}deg)`;
 
     container.appendChild(img);
   }
