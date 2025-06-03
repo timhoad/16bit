@@ -1,0 +1,26 @@
+body {
+  margin: 0;
+  background: #111;
+  overflow: hidden;
+}
+
+.image-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.image-container img {
+  width: 100%;
+  height: auto;
+  opacity: 0;
+  transform: scale(2) translateY(200px);
+  transition: all 1s ease;
+  border-radius: 8px;
+  object-fit: cover;
+}
