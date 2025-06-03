@@ -1,6 +1,6 @@
 const container = document.getElementById('imageContainer');
 const imageCount = 18;
-const totalImages = 36; // Use each image twice
+const totalImages = 36;
 
 // Fill array with each image twice, in order
 const images = [];
@@ -25,6 +25,30 @@ function pseudoRandom(seed) {
   return ((Math.sin(seed) * 10000) % 1 + 1) % 1;
 }
 
+// Helper: anchor points for corners and edges
+function edgeAnchors(width, height) {
+  return [
+    [0, 0],                                 // top-left
+    [width / 2, 0],                         // top-center
+    [width - 1, 0],                         // top-right
+    [0, height / 2],                        // left-center
+    [width - 1, height / 2],                // right-center
+    [0, height - 1],                        // bottom-left
+    [width / 2, height - 1],                // bottom-center
+    [width - 1, height - 1],                // bottom-right
+  ];
+}
+
+// Vogel/Fermat spiral for even, organic coverage
+function vogelSpiralPosition(i, n, width, height) {
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const r = Math.sqrt(i / n) * 0.5; // radius (0..0.5)
+  const theta = i * goldenAngle;
+  const x = (0.5 + r * Math.cos(theta)) * width;
+  const y = (0.5 + r * Math.sin(theta)) * height;
+  return [x, y];
+}
+
 function clearImages() {
   container.innerHTML = '';
 }
@@ -34,59 +58,53 @@ function fillScreenWithImages() {
 
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
-
-  // Shuffle images deterministically
   const shuffled = seededShuffle(images, 12345);
 
-  // Divide into a grid for even coverage
-  const gridCols = 6;
-  const gridRows = 6;
-  const cellWidth = screenWidth / gridCols;
-  const cellHeight = screenHeight / gridRows;
+  // 8 anchors for edges/corners
+  const anchors = edgeAnchors(screenWidth, screenHeight);
 
+  // Place each image
   for (let i = 0; i < shuffled.length; i++) {
     const img = document.createElement('img');
     img.src = shuffled[i];
     img.alt = "";
 
-    // Which grid cell does this image go in?
-    const col = i % gridCols;
-    const row = Math.floor(i / gridCols);
+    let x, y;
+    // First 8 images at explicit anchors
+    if (i < anchors.length) {
+      [x, y] = anchors[i];
+      // Small inward offset so corners/edges are covered well and image is not mostly offscreen
+      const offset = Math.min(screenWidth, screenHeight) * 0.08;
+      if (x === 0) x += offset;
+      if (x === screenWidth - 1) x -= offset;
+      if (y === 0) y += offset;
+      if (y === screenHeight - 1) y -= offset;
+    } else {
+      // Spread others by Vogel spiral for even organic fill
+      [x, y] = vogelSpiralPosition(i - anchors.length, shuffled.length - anchors.length, screenWidth, screenHeight);
+      // Add deterministic jitter for natural look
+      const jitter = Math.min(screenWidth, screenHeight) * 0.09;
+      x += (pseudoRandom(i + 321) - 0.5) * jitter;
+      y += (pseudoRandom(i + 654) - 0.5) * jitter;
+    }
 
-    // Center of cell
-    let centerX = col * cellWidth + cellWidth / 2;
-    let centerY = row * cellHeight + cellHeight / 2;
-
-    // For edge/corner images, make sure they reach the border
-    // Clamp center for first/last row/col
-    if (col === 0) centerX = Math.max(centerX, cellWidth * 0.42);
-    if (col === gridCols - 1) centerX = Math.min(centerX, screenWidth - cellWidth * 0.42);
-    if (row === 0) centerY = Math.max(centerY, cellHeight * 0.42);
-    if (row === gridRows - 1) centerY = Math.min(centerY, screenHeight - cellHeight * 0.42);
-
-    // Size: Large enough to overlap but not to hide everything
-    const minSize = Math.min(cellWidth, cellHeight) * 2.0;
-    const maxSize = Math.min(cellWidth, cellHeight) * 2.5;
+    // Sizing: Edge/corner images a bit larger, others slightly smaller but still overlapping
+    const minSize = Math.min(screenWidth, screenHeight) * (i < anchors.length ? 0.43 : 0.36);
+    const maxSize = Math.min(screenWidth, screenHeight) * (i < anchors.length ? 0.6 : 0.5);
     const prSeed = 5555 + i * 777;
     const size = minSize + (maxSize - minSize) * pseudoRandom(prSeed + 3);
 
     img.style.width = `${size}px`;
     img.style.height = "auto";
-
-    // Position: Center of cell + SMALL deterministic jitter (to avoid grid look, but not bunching)
-    const jitterRange = Math.min(cellWidth, cellHeight) * 0.18;
-    const jitterX = (pseudoRandom(prSeed + 1) - 0.5) * jitterRange;
-    const jitterY = (pseudoRandom(prSeed + 2) - 0.5) * jitterRange;
-
-    // Final position is centered on (centerX + jitterX, centerY + jitterY)
-    const x = centerX + jitterX - size / 2;
-    const y = centerY + jitterY - size / 2;
-    img.style.left = `${x}px`;
-    img.style.top = `${y}px`;
+    img.style.left = `${x - size / 2}px`;
+    img.style.top = `${y - size / 2}px`;
 
     // Rotation: -35 to +35 deg, deterministic
     const angle = -35 + 70 * pseudoRandom(prSeed + 4);
     img.style.transform = `rotate(${angle}deg)`;
+
+    // Deterministic z-index for layering variety
+    img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(prSeed + 8))}`;
 
     container.appendChild(img);
   }
