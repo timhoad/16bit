@@ -9,7 +9,7 @@ for (let i = 1; i <= imageCount; i++) {
   images.push(`images/image${i}.png`);
 }
 
-// Fisher-Yates shuffle (deterministic, based on a fixed seed)
+// Deterministic shuffle to avoid repeats next to each other
 function seededShuffle(array, seed) {
   let result = array.slice();
   for (let i = result.length - 1; i > 0; i--) {
@@ -35,10 +35,10 @@ function fillScreenWithImages() {
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
 
-  // Shuffle images deterministically so repeats are not next to each other
+  // Shuffle images deterministically
   const shuffled = seededShuffle(images, 12345);
 
-  // Divide the screen into a grid for even distribution
+  // Divide into a grid for even coverage
   const gridCols = 6;
   const gridRows = 6;
   const cellWidth = screenWidth / gridCols;
@@ -49,26 +49,38 @@ function fillScreenWithImages() {
     img.src = shuffled[i];
     img.alt = "";
 
-    // Which grid cell?
+    // Which grid cell does this image go in?
     const col = i % gridCols;
     const row = Math.floor(i / gridCols);
 
-    // Deterministic offset within cell for organic look
-    const prSeed = 5555 + i * 777;
-    const offsetX = pseudoRandom(prSeed + 1) * (cellWidth * 0.35) - cellWidth * 0.175;
-    const offsetY = pseudoRandom(prSeed + 2) * (cellHeight * 0.35) - cellHeight * 0.175;
+    // Center of cell
+    let centerX = col * cellWidth + cellWidth / 2;
+    let centerY = row * cellHeight + cellHeight / 2;
 
-    // Make images large so they overlap, but not so large they always spill off the screen
+    // For edge/corner images, make sure they reach the border
+    // Clamp center for first/last row/col
+    if (col === 0) centerX = Math.max(centerX, cellWidth * 0.42);
+    if (col === gridCols - 1) centerX = Math.min(centerX, screenWidth - cellWidth * 0.42);
+    if (row === 0) centerY = Math.max(centerY, cellHeight * 0.42);
+    if (row === gridRows - 1) centerY = Math.min(centerY, screenHeight - cellHeight * 0.42);
+
+    // Size: Large enough to overlap but not to hide everything
     const minSize = Math.min(cellWidth, cellHeight) * 2.0;
-    const maxSize = Math.min(cellWidth, cellHeight) * 2.7;
+    const maxSize = Math.min(cellWidth, cellHeight) * 2.5;
+    const prSeed = 5555 + i * 777;
     const size = minSize + (maxSize - minSize) * pseudoRandom(prSeed + 3);
 
     img.style.width = `${size}px`;
     img.style.height = "auto";
 
-    // Compute position so images are centered in their cell plus offset
-    const x = col * cellWidth + (cellWidth - size) / 2 + offsetX;
-    const y = row * cellHeight + (cellHeight - size) / 2 + offsetY;
+    // Position: Center of cell + SMALL deterministic jitter (to avoid grid look, but not bunching)
+    const jitterRange = Math.min(cellWidth, cellHeight) * 0.18;
+    const jitterX = (pseudoRandom(prSeed + 1) - 0.5) * jitterRange;
+    const jitterY = (pseudoRandom(prSeed + 2) - 0.5) * jitterRange;
+
+    // Final position is centered on (centerX + jitterX, centerY + jitterY)
+    const x = centerX + jitterX - size / 2;
+    const y = centerY + jitterY - size / 2;
     img.style.left = `${x}px`;
     img.style.top = `${y}px`;
 
