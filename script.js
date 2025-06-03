@@ -38,96 +38,7 @@ function clearImages() {
   container.innerHTML = '';
 }
 
-// Poisson Disk Sampling, but restrict most points to a 90% centered box
-function poissonDiskSampleBox(width, height, minDist, numPoints, k = 30, boxPercent = 0.90) {
-  // Bridson's algorithm (2D) with bounding box
-  let grid = [];
-  let active = [];
-  let points = [];
-  let cellSize = minDist / Math.SQRT2;
-  let gridWidth = Math.ceil(width / cellSize);
-  let gridHeight = Math.ceil(height / cellSize);
-  for (let i = 0; i < gridWidth * gridHeight; i++) grid[i] = -1;
-
-  function gridIndex(x, y) {
-    return Math.floor(x / cellSize) + Math.floor(y / cellSize) * gridWidth;
-  }
-
-  function inNeighbourhood(x, y) {
-    let gx = Math.floor(x / cellSize);
-    let gy = Math.floor(y / cellSize);
-    for (let i = -2; i <= 2; i++) {
-      for (let j = -2; j <= 2; j++) {
-        let nx = gx + i;
-        let ny = gy + j;
-        if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
-          let idx = nx + ny * gridWidth;
-          let pIdx = grid[idx];
-          if (pIdx !== -1) {
-            let dx = points[pIdx][0] - x;
-            let dy = points[pIdx][1] - y;
-            if (dx * dx + dy * dy < minDist * minDist) return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  // Define the 90% box
-  const boxMarginX = (1.0 - boxPercent) * width / 2;
-  const boxMarginY = (1.0 - boxPercent) * height / 2;
-  const minX = boxMarginX;
-  const maxX = width - boxMarginX;
-  const minY = boxMarginY;
-  const maxY = height - boxMarginY;
-
-  // Start with initial point in the box
-  let x0 = width / 2 + (pseudoRandom(9999) - 0.5) * minDist * 0.5;
-  let y0 = height / 2 + (pseudoRandom(5555) - 0.5) * minDist * 0.5;
-  points.push([x0, y0]);
-  let idx0 = gridIndex(x0, y0);
-  grid[idx0] = 0;
-  active.push(0);
-
-  while (active.length && points.length < Math.floor(numPoints * boxPercent)) {
-    let randIndex = Math.floor(pseudoRandom(points.length * 3333) * active.length);
-    let idx = active[randIndex];
-    let found = false;
-    for (let n = 0; n < k; n++) {
-      let angle = 2 * Math.PI * pseudoRandom(points.length * 777 + n);
-      let radius = minDist * (1 + pseudoRandom(points.length * 111 + n));
-      let px = points[idx][0] + radius * Math.cos(angle);
-      let py = points[idx][1] + radius * Math.sin(angle);
-      if (
-        px >= minX && px <= maxX &&
-        py >= minY && py <= maxY &&
-        !inNeighbourhood(px, py)
-      ) {
-        points.push([px, py]);
-        let newIdx = gridIndex(px, py);
-        grid[newIdx] = points.length - 1;
-        active.push(points.length - 1);
-        found = true;
-        break;
-      }
-    }
-    if (!found) active.splice(randIndex, 1);
-  }
-
-  // Fill the remaining points (10%) across the full area (covering edges/corners)
-  while (points.length < numPoints) {
-    let x = (pseudoRandom(points.length * 17) * (width - minDist)) + minDist / 2;
-    let y = (pseudoRandom(points.length * 37) * (height - minDist)) + minDist / 2;
-    points.push([x, y]);
-  }
-
-  // If too many points, trim (should rarely happen)
-  if (points.length > numPoints) points = points.slice(0, numPoints);
-
-  return points;
-}
-
+// Improved: Grid with strong jitter, 10% larger images, and fade-in
 function fillScreenWithImages() {
   clearImages();
 
@@ -135,52 +46,63 @@ function fillScreenWithImages() {
   const screenHeight = window.innerHeight;
   const shuffled = seededShuffle(images, 12345);
 
-  // Poisson disk sample: distance is a function of screen and image count
-  const minDist = 0.85 * Math.sqrt((screenWidth * screenHeight) / images.length);
-  // 90% of points inside 90% box, 10% anywhere (edges/corners)
-  const points = poissonDiskSampleBox(screenWidth, screenHeight, minDist, images.length, 30, 0.90);
+  // Grid dimensions (force a square grid for equal spread)
+  const numImages = shuffled.length;
+  const aspect = screenWidth / screenHeight;
+  const gridCols = Math.ceil(Math.sqrt(numImages * aspect));
+  const gridRows = Math.ceil(numImages / gridCols);
 
-  // Place each image at a point, with a little jitter for overlap
-  for (let i = 0; i < shuffled.length; i++) {
-    const img = document.createElement('img');
-    img.src = shuffled[i];
-    img.alt = "";
-    img.style.opacity = "0";
-    img.style.transition = "opacity 2.2s cubic-bezier(0.63,0.01,0.33,1.01)";
+  // Image size (base) -- increased by 10%
+  const cellWidth = screenWidth / gridCols;
+  const cellHeight = screenHeight / gridRows;
+  const baseSize = Math.max(cellWidth, cellHeight) * 1.7; // was 1.55, now 1.7
 
-    let [x, y] = points[i];
+  let imgIndex = 0;
+  for (let row = 0; row < gridRows; row++) {
+    for (let col = 0; col < gridCols; col++) {
+      if (imgIndex >= numImages) break;
 
-    // Jitter for non-edge points only (keeps edges/corners filled)
-    if (i < Math.floor(images.length * 0.9)) {
-      const jitter = minDist * 0.12;
-      x += (pseudoRandom(i * 7) - 0.5) * jitter;
-      y += (pseudoRandom(i * 13) - 0.5) * jitter;
-      // Clamp to 90% box
-      const boxMarginX = (1.0 - 0.90) * screenWidth / 2;
-      const boxMarginY = (1.0 - 0.90) * screenHeight / 2;
-      x = Math.max(boxMarginX, Math.min(screenWidth - boxMarginX, x));
-      y = Math.max(boxMarginY, Math.min(screenHeight - boxMarginY, y));
-    } else {
-      // Clamp to screen
-      x = Math.max(minDist * 0.3, Math.min(screenWidth - minDist * 0.3, x));
-      y = Math.max(minDist * 0.3, Math.min(screenHeight - minDist * 0.3, y));
+      const img = document.createElement('img');
+      img.src = shuffled[imgIndex];
+      img.alt = "";
+      img.style.opacity = "0";
+      img.style.transition = "opacity 1.7s cubic-bezier(0.63,0.01,0.33,1.01)";
+
+      // Position in a grid cell, but with strong jitter (up to 36% of cell size)
+      let x = col * cellWidth + cellWidth / 2;
+      let y = row * cellHeight + cellHeight / 2;
+      const strongJitterX = (pseudoRandom(imgIndex * 7) - 0.5) * cellWidth * 0.36;
+      const strongJitterY = (pseudoRandom(imgIndex * 13) - 0.5) * cellHeight * 0.36;
+      x += strongJitterX;
+      y += strongJitterY;
+
+      // Clamp to keep 90% of image inside the screen
+      const marginX = baseSize * 0.45;
+      const marginY = baseSize * 0.45;
+      x = Math.max(marginX, Math.min(screenWidth - marginX, x));
+      y = Math.max(marginY, Math.min(screenHeight - marginY, y));
+
+      // 10% larger size and jitter
+      const size = baseSize * (0.85 + 0.3 * pseudoRandom(imgIndex * 19)) * 1.10; // +10%
+      img.style.width = `${size}px`;
+      img.style.height = "auto";
+      img.style.left = `${x - size / 2}px`;
+      img.style.top = `${y - size / 2}px`;
+
+      // Rotation & z-index
+      const angle = -35 + 70 * pseudoRandom(imgIndex * 23);
+      img.style.transform = `rotate(${angle}deg)`;
+      img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(imgIndex * 29))}`;
+
+      container.appendChild(img);
+
+      // Fade in with stagger
+      setTimeout(() => {
+        img.style.opacity = "1";
+      }, 120 + Math.floor(imgIndex * 40 + pseudoRandom(imgIndex + 7777) * 200));
+
+      imgIndex++;
     }
-
-    const size = minDist * (1.5 + 0.25 * pseudoRandom(i * 19));
-    img.style.width = `${size}px`;
-    img.style.height = "auto";
-    img.style.left = `${x - size / 2}px`;
-    img.style.top = `${y - size / 2}px`;
-
-    const angle = -35 + 70 * pseudoRandom(i * 23);
-    img.style.transform = `rotate(${angle}deg)`;
-    img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(i * 29))}`;
-
-    container.appendChild(img);
-
-    requestAnimationFrame(() => {
-      img.style.opacity = "1";
-    });
   }
 }
 
