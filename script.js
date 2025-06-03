@@ -30,17 +30,9 @@ function seededShuffle(array, seed) {
   return result;
 }
 
-// Anchor adjacency map: which anchor indices are 'neighbors'
-const neighborMap = {
-  0: [1,3],
-  1: [0,2],
-  2: [1,4],
-  3: [0,5],
-  4: [2,7],
-  5: [3,6],
-  6: [5,7],
-  7: [4,6],
-};
+function pseudoRandom(seed) {
+  return ((Math.sin(seed) * 10000) % 1 + 1) % 1;
+}
 
 // Swap one Donkey Kong in the anchors with a Red Ghost if both are present
 function swapDonkeyKongWithRedGhost(shuffled, anchorsCount) {
@@ -61,128 +53,146 @@ function swapDonkeyKongWithRedGhost(shuffled, anchorsCount) {
   return shuffled;
 }
 
-function ensureNoAdjacentAnchorDuplicates(shuffled, anchorsCount) {
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (let i = 0; i < anchorsCount; i++) {
-      for (let n of neighborMap[i] || []) {
-        if (shuffled[i] === shuffled[n]) {
-          for (let j = anchorsCount; j < shuffled.length; j++) {
-            let safe = true;
-            for (let k = 0; k < anchorsCount; k++) {
-              if (k !== i && shuffled[j] === shuffled[k]) {
-                safe = false;
-                break;
-              }
-            }
-            if (safe && shuffled[j] !== shuffled[i]) {
-              [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-              changed = true;
-              break;
-            }
+function clearImages() {
+  container.innerHTML = '';
+}
+
+// Poisson Disk Sampling for more even but organic placement
+function poissonDiskSample(width, height, minDist, numPoints, k = 30) {
+  // Bridson's algorithm (2D)
+  let grid = [];
+  let active = [];
+  let points = [];
+  let cellSize = minDist / Math.SQRT2;
+  let gridWidth = Math.ceil(width / cellSize);
+  let gridHeight = Math.ceil(height / cellSize);
+  for (let i = 0; i < gridWidth * gridHeight; i++) grid[i] = -1;
+
+  function gridIndex(x, y) {
+    return Math.floor(x / cellSize) + Math.floor(y / cellSize) * gridWidth;
+  }
+
+  function inNeighbourhood(x, y) {
+    let gx = Math.floor(x / cellSize);
+    let gy = Math.floor(y / cellSize);
+    for (let i = -2; i <= 2; i++) {
+      for (let j = -2; j <= 2; j++) {
+        let nx = gx + i;
+        let ny = gy + j;
+        if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
+          let idx = nx + ny * gridWidth;
+          let pIdx = grid[idx];
+          if (pIdx !== -1) {
+            let dx = points[pIdx][0] - x;
+            let dy = points[pIdx][1] - y;
+            if (dx * dx + dy * dy < minDist * minDist) return true;
           }
         }
-        if (changed) break;
       }
-      if (changed) break;
     }
+    return false;
   }
-  return shuffled;
+
+  // Start with initial point in center with jitter
+  let x0 = width / 2 + (pseudoRandom(9999) - 0.5) * minDist * 0.5;
+  let y0 = height / 2 + (pseudoRandom(5555) - 0.5) * minDist * 0.5;
+  points.push([x0, y0]);
+  let idx0 = gridIndex(x0, y0);
+  grid[idx0] = 0;
+  active.push(0);
+
+  while (active.length && points.length < numPoints) {
+    let randIndex = Math.floor(pseudoRandom(points.length * 3333) * active.length);
+    let idx = active[randIndex];
+    let found = false;
+    for (let n = 0; n < k; n++) {
+      let angle = 2 * Math.PI * pseudoRandom(points.length * 777 + n);
+      let radius = minDist * (1 + pseudoRandom(points.length * 111 + n));
+      let px = points[idx][0] + radius * Math.cos(angle);
+      let py = points[idx][1] + radius * Math.sin(angle);
+      if (
+        px >= minDist / 2 && px <= width - minDist / 2 &&
+        py >= minDist / 2 && py <= height - minDist / 2 &&
+        !inNeighbourhood(px, py)
+      ) {
+        points.push([px, py]);
+        let newIdx = gridIndex(px, py);
+        grid[newIdx] = points.length - 1;
+        active.push(points.length - 1);
+        found = true;
+        break;
+      }
+    }
+    if (!found) active.splice(randIndex, 1);
+  }
+
+  // If not enough points, fill with jittered grid points
+  while (points.length < numPoints) {
+    let x = (pseudoRandom(points.length * 17) * (width - minDist)) + minDist / 2;
+    let y = (pseudoRandom(points.length * 37) * (height - minDist)) + minDist / 2;
+    points.push([x, y]);
+  }
+
+  // If too many points, trim (this should rarely happen)
+  if (points.length > numPoints) points = points.slice(0, numPoints);
+
+  return points;
 }
 
-// Deterministic "random" number in [0,1)
-function pseudoRandom(seed) {
-  return ((Math.sin(seed) * 10000) % 1 + 1) % 1;
-}
-
-// Spread images using grid with jitter for even coverage
 function fillScreenWithImages() {
   clearImages();
 
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
-  let shuffled = seededShuffle(images, 12345);
+  const shuffled = seededShuffle(images, 12345);
 
-  // 8 anchors for edges/corners
-  const anchors = [
-    [0, 0],
-    [screenWidth / 2, 0],
-    [screenWidth - 1, 0],
-    [0, screenHeight / 2],
-    [screenWidth - 1, screenHeight / 2],
-    [0, screenHeight - 1],
-    [screenWidth / 2, screenHeight - 1],
-    [screenWidth - 1, screenHeight - 1],
-  ];
+  // Poisson disk sample: distance is a function of screen and image count
+  const minDist = 0.85 * Math.sqrt((screenWidth * screenHeight) / images.length);
+  const points = poissonDiskSample(screenWidth, screenHeight, minDist, images.length);
 
-  // Ensure no adjacent anchors are identical & swap Donkey Kong/Red Ghost if needed
-  shuffled = ensureNoAdjacentAnchorDuplicates(shuffled, anchors.length);
-  shuffled = swapDonkeyKongWithRedGhost(shuffled, anchors.length);
+  // Explicitly anchor at least the four corners
+  const anchorIndices = [0, 1, 2, 3];
+  points[anchorIndices[0]] = [0 + minDist * 0.6, 0 + minDist * 0.6]; // top-left
+  points[anchorIndices[1]] = [screenWidth - minDist * 0.6, 0 + minDist * 0.6]; // top-right
+  points[anchorIndices[2]] = [0 + minDist * 0.6, screenHeight - minDist * 0.6]; // bottom-left
+  points[anchorIndices[3]] = [screenWidth - minDist * 0.6, screenHeight - minDist * 0.6]; // bottom-right
 
-  // Use a grid for even distribution (with jitter for natural look)
-  const numImages = shuffled.length;
-  const aspect = screenWidth / screenHeight;
-  const gridCols = Math.ceil(Math.sqrt(numImages * aspect));
-  const gridRows = Math.ceil(numImages / gridCols);
+  // Place each image at a point, with a little jitter for overlap
+  for (let i = 0; i < shuffled.length; i++) {
+    const img = document.createElement('img');
+    img.src = shuffled[i];
+    img.alt = "";
+    img.style.opacity = "0";
+    img.style.transition = "opacity 2.2s cubic-bezier(0.63,0.01,0.33,1.01)";
 
-  let imgIndex = 0;
-  for (let row = 0; row < gridRows; row++) {
-    for (let col = 0; col < gridCols; col++) {
-      if (imgIndex >= numImages) break;
+    let [x, y] = points[i];
 
-      const img = document.createElement('img');
-      img.src = shuffled[imgIndex];
-      img.alt = "";
-      img.style.opacity = "0";
-      img.style.transition = "opacity 2.2s cubic-bezier(0.63,0.01,0.33,1.01)";
-
-      // Compute cell size and center
-      const cellWidth = screenWidth / gridCols;
-      const cellHeight = screenHeight / gridRows;
-      let x = col * cellWidth + cellWidth / 2;
-      let y = row * cellHeight + cellHeight / 2;
-
-      // Jitter (max 15% of cell size, except for edges/corners which are clamped)
-      let jitterRangeX = cellWidth * 0.3;
-      let jitterRangeY = cellHeight * 0.3;
-      let jitterX = (pseudoRandom(imgIndex * 7) - 0.5) * jitterRangeX;
-      let jitterY = (pseudoRandom(imgIndex * 13) - 0.5) * jitterRangeY;
-      x += jitterX;
-      y += jitterY;
-
-      // Clamp edge/corner images so they always touch the border
-      if (col === 0) x = Math.max(x, cellWidth * 0.3);
-      if (col === gridCols - 1) x = Math.min(x, screenWidth - cellWidth * 0.3);
-      if (row === 0) y = Math.max(y, cellHeight * 0.3);
-      if (row === gridRows - 1) y = Math.min(y, screenHeight - cellHeight * 0.3);
-
-      // Size: slight variation, generally larger than cell for overlap
-      const baseSize = Math.max(cellWidth, cellHeight) * 1.55;
-      const size = baseSize * (0.85 + 0.3 * pseudoRandom(imgIndex * 19));
-      img.style.width = `${size}px`;
-      img.style.height = "auto";
-      img.style.left = `${x - size / 2}px`;
-      img.style.top = `${y - size / 2}px`;
-
-      // Rotation & z-index
-      const angle = -35 + 70 * pseudoRandom(imgIndex * 23);
-      img.style.transform = `rotate(${angle}deg)`;
-      img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(imgIndex * 29))}`;
-
-      container.appendChild(img);
-
-      requestAnimationFrame(() => {
-        img.style.opacity = "1";
-      });
-
-      imgIndex++;
+    // For anchors, don't jitter; for others, jitter slightly
+    if (!anchorIndices.includes(i)) {
+      const jitter = minDist * 0.12;
+      x += (pseudoRandom(i * 7) - 0.5) * jitter;
+      y += (pseudoRandom(i * 13) - 0.5) * jitter;
+      // Clamp to screen
+      x = Math.max(minDist * 0.3, Math.min(screenWidth - minDist * 0.3, x));
+      y = Math.max(minDist * 0.3, Math.min(screenHeight - minDist * 0.3, y));
     }
-  }
-}
 
-function clearImages() {
-  container.innerHTML = '';
+    const size = minDist * (1.5 + 0.25 * pseudoRandom(i * 19));
+    img.style.width = `${size}px`;
+    img.style.height = "auto";
+    img.style.left = `${x - size / 2}px`;
+    img.style.top = `${y - size / 2}px`;
+
+    const angle = -35 + 70 * pseudoRandom(i * 23);
+    img.style.transform = `rotate(${angle}deg)`;
+    img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(i * 29))}`;
+
+    container.appendChild(img);
+
+    requestAnimationFrame(() => {
+      img.style.opacity = "1";
+    });
+  }
 }
 
 window.addEventListener('load', fillScreenWithImages);
