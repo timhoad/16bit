@@ -51,7 +51,7 @@ function fillScreenWithImages() {
 
   const cellWidth = screenWidth / gridCols;
   const cellHeight = screenHeight / gridRows;
-  const baseSize = Math.max(cellWidth, cellHeight) * 1.7; // +10%
+  const baseSize = Math.max(cellWidth, cellHeight) * 1.7;
 
   let imgIndex = 0;
   let loadedCount = 0;
@@ -62,7 +62,7 @@ function fillScreenWithImages() {
       overlayTriggered = true;
       setTimeout(() => {
         fadeInOverlay();
-      }, 1500); // Wait 1.5s after all images loaded (1s + 0.5s extra)
+      }, 2500); // Wait 2.5s after all images loaded
     }
   }
 
@@ -105,7 +105,6 @@ function fillScreenWithImages() {
         tryTriggerOverlay();
       });
 
-      // If cached, count immediately (this must be after .onload)
       if (img.complete) {
         loadedCount++;
         tryTriggerOverlay();
@@ -122,45 +121,39 @@ function fillScreenWithImages() {
   }
 }
 
+// Always create a new overlay image element for a fresh fade every time
 function fadeInOverlay() {
-  // Use overlaymobile.jpg for mobile, overlaydesktop.jpg for desktop
-  const isMobile = window.innerWidth <= 700; // Adjust threshold as needed
+  // Remove any previous overlay image if present
+  const oldOverlay = document.getElementById('overlay-img');
+  if (oldOverlay) oldOverlay.remove();
+
+  const isMobile = window.innerWidth <= 700;
   const overlaySrc = isMobile ? 'overlaymobile.jpg' : 'overlaydesktop.jpg';
 
-  let overlay = document.getElementById('overlay-img');
-  if (!overlay) {
-    overlay = document.createElement('img');
-    overlay.id = 'overlay-img';
-    overlay.src = overlaySrc;
-    overlay.alt = "Overlay";
-    overlay.style.position = "fixed";
-    overlay.style.left = "0";
-    overlay.style.top = "0";
-    overlay.style.width = "100vw";
-    overlay.style.height = "100vh";
-    overlay.style.zIndex = "9999";
-    overlay.style.opacity = "0";
-    overlay.style.pointerEvents = "none";
-    // 2.5s * 1.3 = 3.25s for 30% slower fade in
-    overlay.style.transition = "opacity 3.25s cubic-bezier(0.63,0.01,0.33,1.01)";
-    document.body.appendChild(overlay);
+  const overlay = document.createElement('img');
+  overlay.id = 'overlay-img';
+  overlay.src = overlaySrc;
+  overlay.alt = "Overlay";
+  overlay.style.position = "fixed";
+  overlay.style.left = "0";
+  overlay.style.top = "0";
+  overlay.style.width = "100vw";
+  overlay.style.height = "100vh";
+  overlay.style.zIndex = "9999";
+  overlay.style.opacity = "0";
+  overlay.style.pointerEvents = "none";
+  overlay.style.transition = "opacity 3.25s cubic-bezier(0.63,0.01,0.33,1.01)";
+  document.body.appendChild(overlay);
 
-    overlay.onload = () => {
-      requestAnimationFrame(() => {
-        overlay.style.opacity = "1";
-      });
-    };
-    if (overlay.complete) {
-      requestAnimationFrame(() => {
-        overlay.style.opacity = "1";
-      });
-    }
-  } else {
-    overlay.src = overlaySrc;
-    overlay.style.opacity = "0";
+  // Fade to 0.98 instead of 1 for see-through effect
+  function fadeToAlmostOpaque() {
     requestAnimationFrame(() => {
-      overlay.style.opacity = "1";
+      overlay.style.opacity = "0.98";
     });
+  }
+  overlay.onload = fadeToAlmostOpaque;
+  if (overlay.complete) {
+    fadeToAlmostOpaque();
   }
 }
 
