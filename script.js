@@ -14,51 +14,64 @@ function fillScreenWithImages() {
   clearImages();
 
   const screenArea = window.innerWidth * window.innerHeight;
-  let totalCoveredArea = 0;
+  let coveredArea = 0;
 
-  while (totalCoveredArea < screenArea * 1.2) {
+  while (coveredArea < screenArea * 1.8) { // Overfill for good coverage
     const img = document.createElement('img');
     const src = images[Math.floor(Math.random() * images.length)];
     img.src = src;
 
-    const size = Math.random() * 120 + 80; // 80–200px
+    // Random size (small to large tiles)
+    const size = Math.random() * 200 + 100; // 100–300px
     img.style.width = `${size}px`;
+    img.style.height = 'auto';
 
+    // Random position within viewport
     const x = Math.random() * (window.innerWidth - size);
     const y = Math.random() * (window.innerHeight - size);
     img.style.left = `${x}px`;
     img.style.top = `${y}px`;
 
-    const blur = Math.random() * 1.5; // 0–1.5px blur
+    // Random rotation (-30 to +30 degrees)
+    const rotation = (Math.random() - 0.5) * 60;
+
+    // Optional blur for depth
+    const blur = Math.random() * 1.5;
+
     img.style.filter = `blur(${blur}px)`;
+    img.style.transform = `rotate(${rotation}deg)`;
 
     container.appendChild(img);
-    totalCoveredArea += size * size;
+
+    coveredArea += size * size * 0.6; // Adjusted estimate
   }
 
   animateImages();
 }
 
 function animateImages() {
-  const allImgs = document.querySelectorAll('.image-container img');
-
-  allImgs.forEach((img, i) => {
-    gsap.fromTo(img, {
-      opacity: 0,
-      scale: 2
-    }, {
-      opacity: 1,
-      scale: 1,
-      duration: 1.2,
-      delay: i * 0.05,
-      ease: "power4.out"
-    });
+  const imgs = document.querySelectorAll('.image-container img');
+  imgs.forEach((img, i) => {
+    gsap.fromTo(
+      img,
+      {
+        opacity: 0,
+        scale: 2,
+        rotate: img.style.transform.match(/-?\d+/)?.[0] || 0
+      },
+      {
+        opacity: 1,
+        scale: 1,
+        duration: 1.5,
+        delay: i * 0.03,
+        ease: 'power4.out'
+      }
+    );
   });
 }
 
 window.addEventListener('load', fillScreenWithImages);
 window.addEventListener('resize', () => {
-  // Add debounce to prevent excessive rendering
   clearTimeout(window.resized);
   window.resized = setTimeout(fillScreenWithImages, 300);
 });
