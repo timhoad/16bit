@@ -34,32 +34,13 @@ function pseudoRandom(seed) {
   return ((Math.sin(seed) * 10000) % 1 + 1) % 1;
 }
 
-// Swap one Donkey Kong in the anchors with a Red Ghost if both are present
-function swapDonkeyKongWithRedGhost(shuffled, anchorsCount) {
-  let donkeyKong = 'images/image1.png';
-  let redGhosts = ['images/image10.png', 'images/image11.png'];
-  let dkIndices = [];
-  for (let i = 0; i < anchorsCount; i++) {
-    if (shuffled[i] === donkeyKong) dkIndices.push(i);
-  }
-  if (dkIndices.length >= 2) {
-    for (let j = anchorsCount; j < shuffled.length; j++) {
-      if (redGhosts.includes(shuffled[j])) {
-        [shuffled[dkIndices[1]], shuffled[j]] = [shuffled[j], shuffled[dkIndices[1]]];
-        break;
-      }
-    }
-  }
-  return shuffled;
-}
-
 function clearImages() {
   container.innerHTML = '';
 }
 
-// Poisson Disk Sampling for more even but organic placement
-function poissonDiskSample(width, height, minDist, numPoints, k = 30) {
-  // Bridson's algorithm (2D)
+// Poisson Disk Sampling, but restrict most points to a 90% centered box
+function poissonDiskSampleBox(width, height, minDist, numPoints, k = 30, boxPercent = 0.90) {
+  // Bridson's algorithm (2D) with bounding box
   let grid = [];
   let active = [];
   let points = [];
@@ -93,7 +74,15 @@ function poissonDiskSample(width, height, minDist, numPoints, k = 30) {
     return false;
   }
 
-  // Start with initial point in center with jitter
+  // Define the 90% box
+  const boxMarginX = (1.0 - boxPercent) * width / 2;
+  const boxMarginY = (1.0 - boxPercent) * height / 2;
+  const minX = boxMarginX;
+  const maxX = width - boxMarginX;
+  const minY = boxMarginY;
+  const maxY = height - boxMarginY;
+
+  // Start with initial point in the box
   let x0 = width / 2 + (pseudoRandom(9999) - 0.5) * minDist * 0.5;
   let y0 = height / 2 + (pseudoRandom(5555) - 0.5) * minDist * 0.5;
   points.push([x0, y0]);
@@ -101,7 +90,7 @@ function poissonDiskSample(width, height, minDist, numPoints, k = 30) {
   grid[idx0] = 0;
   active.push(0);
 
-  while (active.length && points.length < numPoints) {
+  while (active.length && points.length < Math.floor(numPoints * boxPercent)) {
     let randIndex = Math.floor(pseudoRandom(points.length * 3333) * active.length);
     let idx = active[randIndex];
     let found = false;
@@ -111,8 +100,8 @@ function poissonDiskSample(width, height, minDist, numPoints, k = 30) {
       let px = points[idx][0] + radius * Math.cos(angle);
       let py = points[idx][1] + radius * Math.sin(angle);
       if (
-        px >= minDist / 2 && px <= width - minDist / 2 &&
-        py >= minDist / 2 && py <= height - minDist / 2 &&
+        px >= minX && px <= maxX &&
+        py >= minY && py <= maxY &&
         !inNeighbourhood(px, py)
       ) {
         points.push([px, py]);
@@ -126,14 +115,14 @@ function poissonDiskSample(width, height, minDist, numPoints, k = 30) {
     if (!found) active.splice(randIndex, 1);
   }
 
-  // If not enough points, fill with jittered grid points
+  // Fill the remaining points (10%) across the full area (covering edges/corners)
   while (points.length < numPoints) {
     let x = (pseudoRandom(points.length * 17) * (width - minDist)) + minDist / 2;
     let y = (pseudoRandom(points.length * 37) * (height - minDist)) + minDist / 2;
     points.push([x, y]);
   }
 
-  // If too many points, trim (this should rarely happen)
+  // If too many points, trim (should rarely happen)
   if (points.length > numPoints) points = points.slice(0, numPoints);
 
   return points;
@@ -148,14 +137,8 @@ function fillScreenWithImages() {
 
   // Poisson disk sample: distance is a function of screen and image count
   const minDist = 0.85 * Math.sqrt((screenWidth * screenHeight) / images.length);
-  const points = poissonDiskSample(screenWidth, screenHeight, minDist, images.length);
-
-  // Explicitly anchor at least the four corners
-  const anchorIndices = [0, 1, 2, 3];
-  points[anchorIndices[0]] = [0 + minDist * 0.6, 0 + minDist * 0.6]; // top-left
-  points[anchorIndices[1]] = [screenWidth - minDist * 0.6, 0 + minDist * 0.6]; // top-right
-  points[anchorIndices[2]] = [0 + minDist * 0.6, screenHeight - minDist * 0.6]; // bottom-left
-  points[anchorIndices[3]] = [screenWidth - minDist * 0.6, screenHeight - minDist * 0.6]; // bottom-right
+  // 90% of points inside 90% box, 10% anywhere (edges/corners)
+  const points = poissonDiskSampleBox(screenWidth, screenHeight, minDist, images.length, 30, 0.90);
 
   // Place each image at a point, with a little jitter for overlap
   for (let i = 0; i < shuffled.length; i++) {
@@ -167,11 +150,17 @@ function fillScreenWithImages() {
 
     let [x, y] = points[i];
 
-    // For anchors, don't jitter; for others, jitter slightly
-    if (!anchorIndices.includes(i)) {
+    // Jitter for non-edge points only (keeps edges/corners filled)
+    if (i < Math.floor(images.length * 0.9)) {
       const jitter = minDist * 0.12;
       x += (pseudoRandom(i * 7) - 0.5) * jitter;
       y += (pseudoRandom(i * 13) - 0.5) * jitter;
+      // Clamp to 90% box
+      const boxMarginX = (1.0 - 0.90) * screenWidth / 2;
+      const boxMarginY = (1.0 - 0.90) * screenHeight / 2;
+      x = Math.max(boxMarginX, Math.min(screenWidth - boxMarginX, x));
+      y = Math.max(boxMarginY, Math.min(screenHeight - boxMarginY, y));
+    } else {
       // Clamp to screen
       x = Math.max(minDist * 0.3, Math.min(screenWidth - minDist * 0.3, x));
       y = Math.max(minDist * 0.3, Math.min(screenHeight - minDist * 0.3, y));
