@@ -20,7 +20,6 @@ function seededShuffle(array, seed) {
   // Try to avoid identical images adjacent in the array
   for (let i = 1; i < result.length; i++) {
     if (result[i] === result[i - 1]) {
-      // Find next different image and swap
       let swap = i + 1;
       while (swap < result.length && result[swap] === result[i]) swap++;
       if (swap < result.length) {
@@ -43,11 +42,8 @@ const neighborMap = {
   7: [4,6],
 };
 
-// For this specific swap request: if two Donkey Kong images
-// (assuming Donkey Kong is image1) are both in anchors[0] and anchors[1],
-// swap one with a Red Ghost (assuming Red Ghost is image10 or image11).
+// Swap one Donkey Kong in the anchors with a Red Ghost if both are present
 function swapDonkeyKongWithRedGhost(shuffled, anchorsCount) {
-  // Find indices of Donkey Kong images (image1.png).
   let donkeyKong = 'images/image1.png';
   let redGhosts = ['images/image10.png', 'images/image11.png'];
   let dkIndices = [];
@@ -55,10 +51,8 @@ function swapDonkeyKongWithRedGhost(shuffled, anchorsCount) {
     if (shuffled[i] === donkeyKong) dkIndices.push(i);
   }
   if (dkIndices.length >= 2) {
-    // Find a Red Ghost elsewhere in the list (prefer non-anchor, but allow anchor if needed).
     for (let j = anchorsCount; j < shuffled.length; j++) {
       if (redGhosts.includes(shuffled[j])) {
-        // Swap the second Donkey Kong (not the first/top-left) with a Red Ghost.
         [shuffled[dkIndices[1]], shuffled[j]] = [shuffled[j], shuffled[dkIndices[1]]];
         break;
       }
@@ -74,9 +68,7 @@ function ensureNoAdjacentAnchorDuplicates(shuffled, anchorsCount) {
     for (let i = 0; i < anchorsCount; i++) {
       for (let n of neighborMap[i] || []) {
         if (shuffled[i] === shuffled[n]) {
-          // Find a non-anchor, non-duplicate image to swap in
           for (let j = anchorsCount; j < shuffled.length; j++) {
-            // Make sure not swapping in a duplicate at another anchor
             let safe = true;
             for (let k = 0; k < anchorsCount; k++) {
               if (k !== i && shuffled[j] === shuffled[k]) {
@@ -104,20 +96,7 @@ function pseudoRandom(seed) {
   return ((Math.sin(seed) * 10000) % 1 + 1) % 1;
 }
 
-// Vogel/Fermat spiral for even, organic coverage
-function vogelSpiralPosition(i, n, width, height, spiralJitter = 0.25) {
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const r = Math.sqrt((i + 0.5) / n) * 0.48 + pseudoRandom(i * 777) * spiralJitter * 0.5;
-  const theta = i * goldenAngle + pseudoRandom(i * 333) * 2 * Math.PI * spiralJitter;
-  const x = (0.5 + r * Math.cos(theta)) * width;
-  const y = (0.5 + r * Math.sin(theta)) * height;
-  return [x, y];
-}
-
-function clearImages() {
-  container.innerHTML = '';
-}
-
+// Spread images using grid with jitter for even coverage
 function fillScreenWithImages() {
   clearImages();
 
@@ -137,65 +116,73 @@ function fillScreenWithImages() {
     [screenWidth - 1, screenHeight - 1],
   ];
 
-  // Ensure no adjacent anchors are identical
+  // Ensure no adjacent anchors are identical & swap Donkey Kong/Red Ghost if needed
   shuffled = ensureNoAdjacentAnchorDuplicates(shuffled, anchors.length);
-
-  // Swap one Donkey Kong in the anchors with a Red Ghost if both are present
   shuffled = swapDonkeyKongWithRedGhost(shuffled, anchors.length);
 
-  // Place each image
-  for (let i = 0; i < shuffled.length; i++) {
-    const img = document.createElement('img');
-    img.src = shuffled[i];
-    img.alt = "";
-    img.style.opacity = "0";
-    img.style.transition = "opacity 2.2s cubic-bezier(0.63,0.01,0.33,1.01)";
+  // Use a grid for even distribution (with jitter for natural look)
+  const numImages = shuffled.length;
+  const aspect = screenWidth / screenHeight;
+  const gridCols = Math.ceil(Math.sqrt(numImages * aspect));
+  const gridRows = Math.ceil(numImages / gridCols);
 
-    let x, y;
-    if (i < anchors.length) {
-      [x, y] = anchors[i];
-      const offset = Math.min(screenWidth, screenHeight) * 0.08;
-      if (x === 0) x += offset;
-      if (x === screenWidth - 1) x -= offset;
-      if (y === 0) y += offset;
-      if (y === screenHeight - 1) y -= offset;
-      x += (pseudoRandom(i + 1111) - 0.5) * offset * 0.8;
-      y += (pseudoRandom(i + 2222) - 0.5) * offset * 0.8;
-    } else {
-      [x, y] = vogelSpiralPosition(
-        i - anchors.length,
-        shuffled.length - anchors.length,
-        screenWidth,
-        screenHeight,
-        0.46
-      );
-      const jitter = Math.min(screenWidth, screenHeight) * 0.18;
-      x += (pseudoRandom(i + 3333) - 0.5) * jitter;
-      y += (pseudoRandom(i + 4444) - 0.5) * jitter;
+  let imgIndex = 0;
+  for (let row = 0; row < gridRows; row++) {
+    for (let col = 0; col < gridCols; col++) {
+      if (imgIndex >= numImages) break;
+
+      const img = document.createElement('img');
+      img.src = shuffled[imgIndex];
+      img.alt = "";
+      img.style.opacity = "0";
+      img.style.transition = "opacity 2.2s cubic-bezier(0.63,0.01,0.33,1.01)";
+
+      // Compute cell size and center
+      const cellWidth = screenWidth / gridCols;
+      const cellHeight = screenHeight / gridRows;
+      let x = col * cellWidth + cellWidth / 2;
+      let y = row * cellHeight + cellHeight / 2;
+
+      // Jitter (max 15% of cell size, except for edges/corners which are clamped)
+      let jitterRangeX = cellWidth * 0.3;
+      let jitterRangeY = cellHeight * 0.3;
+      let jitterX = (pseudoRandom(imgIndex * 7) - 0.5) * jitterRangeX;
+      let jitterY = (pseudoRandom(imgIndex * 13) - 0.5) * jitterRangeY;
+      x += jitterX;
+      y += jitterY;
+
+      // Clamp edge/corner images so they always touch the border
+      if (col === 0) x = Math.max(x, cellWidth * 0.3);
+      if (col === gridCols - 1) x = Math.min(x, screenWidth - cellWidth * 0.3);
+      if (row === 0) y = Math.max(y, cellHeight * 0.3);
+      if (row === gridRows - 1) y = Math.min(y, screenHeight - cellHeight * 0.3);
+
+      // Size: slight variation, generally larger than cell for overlap
+      const baseSize = Math.max(cellWidth, cellHeight) * 1.55;
+      const size = baseSize * (0.85 + 0.3 * pseudoRandom(imgIndex * 19));
+      img.style.width = `${size}px`;
+      img.style.height = "auto";
+      img.style.left = `${x - size / 2}px`;
+      img.style.top = `${y - size / 2}px`;
+
+      // Rotation & z-index
+      const angle = -35 + 70 * pseudoRandom(imgIndex * 23);
+      img.style.transform = `rotate(${angle}deg)`;
+      img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(imgIndex * 29))}`;
+
+      container.appendChild(img);
+
+      requestAnimationFrame(() => {
+        img.style.opacity = "1";
+      });
+
+      imgIndex++;
     }
-
-    const minSize = Math.min(screenWidth, screenHeight) * (i < anchors.length ? 0.43 : 0.32);
-    const maxSize = Math.min(screenWidth, screenHeight) * (i < anchors.length ? 0.6 : 0.44);
-    const prSeed = 5555 + i * 777;
-    const size = minSize + (maxSize - minSize) * pseudoRandom(prSeed + 3);
-
-    img.style.width = `${size}px`;
-    img.style.height = "auto";
-    img.style.left = `${x - size / 2}px`;
-    img.style.top = `${y - size / 2}px`;
-
-    const angle = -45 + 90 * pseudoRandom(prSeed + 4);
-    img.style.transform = `rotate(${angle}deg)`;
-
-    img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(prSeed + 8))}`;
-
-    container.appendChild(img);
-
-    // Ensure fade-in works by forcing a reflow before setting opacity to 1
-    requestAnimationFrame(() => {
-      img.style.opacity = "1";
-    });
   }
+}
+
+function clearImages() {
+  container.innerHTML = '';
 }
 
 window.addEventListener('load', fillScreenWithImages);
