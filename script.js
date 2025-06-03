@@ -1,8 +1,8 @@
 const container = document.getElementById('imageContainer');
 const imageCount = 18; // Number of distinct images
-const totalImages = 36; // 6x6 grid
+const totalCells = 36; // 6x6 grid
 
-// Deterministically fill array with each image twice, in order
+// Fill image array deterministically: each image twice, in order
 const images = [];
 for (let i = 1; i <= imageCount; i++) {
   images.push(`images/image${i}.png`);
@@ -23,34 +23,31 @@ function fillScreenWithImages() {
   const slotWidth = screenWidth / cols;
   const slotHeight = screenHeight / rows;
 
-  for (let index = 0; index < totalImages; index++) {
+  for (let index = 0; index < totalCells; index++) {
     const src = images[index];
     const img = document.createElement('img');
     img.src = src;
-    img.alt = ""; // Decorative
+    img.alt = "";
 
     const col = index % cols;
     const row = Math.floor(index / cols);
 
-    // Fixed variety in size: alternate by row, col, index for determinism
-    // Images overlap their slots by 20% for edge-to-edge coverage
-    const baseSize = Math.max(slotWidth, slotHeight) * 1.25;
-    const sizeMod = 0.9 + 0.1 * ((col % 2) ^ (row % 2));
-    const size = baseSize * sizeMod;
+    // Deterministic size: vary by row and col, ensure overlap
+    // Sizes between 110% and 140% of the slot, based on grid position
+    const sizeFactor = 1.1 + ((col * 0.07 + row * 0.09) % 0.3); // range 1.1-1.4
+    const size = Math.max(slotWidth, slotHeight) * sizeFactor;
     img.style.width = `${size}px`;
     img.style.height = `${size}px`;
 
-    // Position: center image in its slot, shifted for overlap
-    const overlapX = (size - slotWidth) / 2;
-    const overlapY = (size - slotHeight) / 2;
-    let x = col * slotWidth - overlapX;
-    let y = row * slotHeight - overlapY;
-    img.style.left = `${x}px`;
-    img.style.top = `${y}px`;
+    // Deterministic rotation: unique but fixed for each cell
+    const baseAngle = -25 + 10 * (col % 3) + 8 * (row % 4);
+    img.style.transform = `rotate(${baseAngle}deg)`;
 
-    // Angle: deterministic by row/col
-    const rotation = -20 + 8 * col + 5 * row;
-    img.style.transform = `rotate(${rotation}deg)`;
+    // Position: center the image in its slot, but allow it to overlap for coverage
+    const offsetX = (size - slotWidth) / 2;
+    const offsetY = (size - slotHeight) / 2;
+    img.style.left = `${col * slotWidth - offsetX}px`;
+    img.style.top = `${row * slotHeight - offsetY}px`;
 
     container.appendChild(img);
   }
