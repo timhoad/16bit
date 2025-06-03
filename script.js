@@ -1,5 +1,5 @@
 const container = document.getElementById('imageContainer');
-const imageCount = 18; // You have 18 images, each is used twice for 36 slots
+const imageCount = 18; // Number of distinct images
 const totalImages = 36; // 6x6 grid
 
 // Deterministically fill array with each image twice, in order
@@ -7,12 +7,6 @@ const images = [];
 for (let i = 1; i <= imageCount; i++) {
   images.push(`images/image${i}.png`);
   images.push(`images/image${i}.png`);
-}
-
-// Deterministic "random" function (simple LCG)
-function pseudoRandom(seed) {
-  let value = Math.sin(seed) * 10000;
-  return value - Math.floor(value);
 }
 
 function clearImages() {
@@ -38,56 +32,29 @@ function fillScreenWithImages() {
     const col = index % cols;
     const row = Math.floor(index / cols);
 
-    // Deterministic "random" for variety using index
-    const sizeSeed = index * 13 + 7;
-    const angleSeed = index * 19 + 11;
-
-    // Make images vary in size: from 1x slot to 1.5x slot, up to 95% of slot
-    let minSlot = Math.min(slotWidth, slotHeight);
-    let maxSlot = minSlot * 1.35;
-    let size = minSlot * (0.95 + 0.3 * pseudoRandom(sizeSeed));
-    size = Math.max(minSlot * 0.95, Math.min(size, maxSlot));
-
+    // Fixed variety in size: alternate by row, col, index for determinism
+    // Images overlap their slots by 20% for edge-to-edge coverage
+    const baseSize = Math.max(slotWidth, slotHeight) * 1.25;
+    const sizeMod = 0.9 + 0.1 * ((col % 2) ^ (row % 2));
+    const size = baseSize * sizeMod;
     img.style.width = `${size}px`;
     img.style.height = `${size}px`;
 
-    // Center within slot, but allow overlap beyond slot edges for better coverage
-    let overlap = size - minSlot;
-    let x = col * slotWidth - overlap / 2;
-    let y = row * slotHeight - overlap / 2;
-
+    // Position: center image in its slot, shifted for overlap
+    const overlapX = (size - slotWidth) / 2;
+    const overlapY = (size - slotHeight) / 2;
+    let x = col * slotWidth - overlapX;
+    let y = row * slotHeight - overlapY;
     img.style.left = `${x}px`;
     img.style.top = `${y}px`;
 
-    // Deterministic angle (-30° to +30°)
-    const rotation = -30 + 60 * pseudoRandom(angleSeed);
+    // Angle: deterministic by row/col
+    const rotation = -20 + 8 * col + 5 * row;
     img.style.transform = `rotate(${rotation}deg)`;
 
     container.appendChild(img);
   }
-
-  // No animation needed if always deterministic, but can fade in if you like
-  // animateImages();
 }
-
-// If you want a fade-in animation, uncomment below:
-/*
-function animateImages() {
-  const imgs = document.querySelectorAll('.image-container img');
-  imgs.forEach((img, i) => {
-    gsap.fromTo(
-      img,
-      { opacity: 0 },
-      {
-        opacity: 1,
-        duration: 1.0,
-        delay: i * 0.01,
-        ease: 'power2.out',
-      }
-    );
-  });
-}
-*/
 
 window.addEventListener('load', fillScreenWithImages);
 window.addEventListener('resize', () => {
