@@ -2,8 +2,9 @@ const container = document.getElementById('imageContainer');
 const imageCount = 18;
 const images = [];
 
-// Load image filenames
+// Load images twice each
 for (let i = 1; i <= imageCount; i++) {
+  images.push(`images/image${i}.png`);
   images.push(`images/image${i}.png`);
 }
 
@@ -14,41 +15,35 @@ function clearImages() {
 function fillScreenWithImages() {
   clearImages();
 
-  const screenArea = window.innerWidth * window.innerHeight;
-  let coveredArea = 0;
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
 
-  // We’ll aim for about 3x the screen area in total image area to fully cover with overlaps
-  const targetArea = screenArea * 3;
-
-  while (coveredArea < targetArea) {
+  images.forEach((src) => {
     const img = document.createElement('img');
-    const src = images[Math.floor(Math.random() * images.length)];
     img.src = src;
 
-    // Larger random size: between 150px and 400px width
-    const size = Math.random() * 250 + 150;
+    // Larger size, between 250px and 400px width
+    const size = Math.random() * 150 + 250;
     img.style.width = `${size}px`;
     img.style.height = 'auto';
 
-    // Random position anywhere inside viewport, factoring size so images don’t go off-screen
-    const x = Math.random() * (window.innerWidth - size);
-    const y = Math.random() * (window.innerHeight - size);
+    // Position anywhere from -20% off left/top edge to 100% viewport width/height
+    // This allows images to slightly overflow/cut off edges to ensure full coverage
+    const x = Math.random() * (screenWidth * 1.2) - (screenWidth * 0.2);
+    const y = Math.random() * (screenHeight * 1.2) - (screenHeight * 0.2);
     img.style.left = `${x}px`;
     img.style.top = `${y}px`;
 
-    // Random rotation between -60 and +60 degrees for more randomness
-    const rotation = (Math.random() - 0.5) * 120;
+    // Rotation between -45 and +45 degrees for randomness
+    const rotation = (Math.random() - 0.5) * 90;
     img.style.transform = `rotate(${rotation}deg)`;
 
-    // Random subtle blur up to 2px
-    const blur = Math.random() * 2;
+    // Subtle blur 0–1.5px
+    const blur = Math.random() * 1.5;
     img.style.filter = `blur(${blur}px)`;
 
     container.appendChild(img);
-
-    // Estimate area adding to coveredArea (adjusted for blur and overlap)
-    coveredArea += size * size * 0.6;
-  }
+  });
 
   animateImages();
 }
@@ -66,7 +61,7 @@ function animateImages() {
       {
         opacity: 0,
         scale: 2,
-        rotate: rotateDeg + 20, // Start rotated slightly offset
+        rotate: rotateDeg + 15, // start slightly offset
       },
       {
         opacity: 1,
