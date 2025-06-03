@@ -145,16 +145,13 @@ function fadeInOverlay() {
   overlay.style.transition = "opacity 3.25s cubic-bezier(0.63,0.01,0.33,1.01)";
   document.body.appendChild(overlay);
 
-  // Fade to 0.98 instead of 1 for see-through effect
-  function fadeToAlmostOpaque() {
+  // Always fade in after DOM paint, regardless of cache state or onload
+  // Double requestAnimationFrame ensures browser paints opacity 0 before changing to 0.98
+  requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       overlay.style.opacity = "0.98";
     });
-  }
-  overlay.onload = fadeToAlmostOpaque;
-  if (overlay.complete) {
-    fadeToAlmostOpaque();
-  }
+  });
 }
 
 window.addEventListener('load', fillScreenWithImages);
