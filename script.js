@@ -62,7 +62,7 @@ function fillScreenWithImages() {
       overlayTriggered = true;
       setTimeout(() => {
         fadeInOverlay();
-      }, 1000); // Wait 1s after all images loaded
+      }, 1500); // Wait 1.5s after all images loaded (1s + 0.5s extra)
     }
   }
 
@@ -141,7 +141,8 @@ function fadeInOverlay() {
     overlay.style.zIndex = "9999";
     overlay.style.opacity = "0";
     overlay.style.pointerEvents = "none";
-    overlay.style.transition = "opacity 2.5s cubic-bezier(0.63,0.01,0.33,1.01)";
+    // 2.5s * 1.3 = 3.25s for 30% slower fade in
+    overlay.style.transition = "opacity 3.25s cubic-bezier(0.63,0.01,0.33,1.01)";
     document.body.appendChild(overlay);
 
     overlay.onload = () => {
