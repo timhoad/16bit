@@ -1,5 +1,5 @@
 const container = document.getElementById('imageContainer');
-const totalImages = 25;
+const totalImages = 20;
 
 // Add images to DOM
 for (let i = 1; i <= totalImages; i++) {
