@@ -20,4 +20,5 @@ body {
   object-fit: cover;
   will-change: transform, opacity, filter;
   border-radius: 6px;
+  user-select: none;
 }
