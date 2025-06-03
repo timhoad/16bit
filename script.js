@@ -44,23 +44,22 @@ function fillScreenWithImages() {
   const screenHeight = window.innerHeight;
   const shuffled = seededShuffle(images, 12345);
 
-  // Grid dimensions (force a square grid for equal spread)
   const numImages = shuffled.length;
   const aspect = screenWidth / screenHeight;
   const gridCols = Math.ceil(Math.sqrt(numImages * aspect));
   const gridRows = Math.ceil(numImages / gridCols);
 
-  // Image size (base) -- increased by 10%
   const cellWidth = screenWidth / gridCols;
   const cellHeight = screenHeight / gridRows;
-  const baseSize = Math.max(cellWidth, cellHeight) * 1.7; // was 1.55, now 1.7
+  const baseSize = Math.max(cellWidth, cellHeight) * 1.7; // +10%
 
   let imgIndex = 0;
   let loadedCount = 0;
-  const allImages = [];
+  let overlayTriggered = false;
 
-  function checkAllLoadedAndFadeOverlay() {
-    if (loadedCount === numImages) {
+  function tryTriggerOverlay() {
+    if (!overlayTriggered && loadedCount === numImages) {
+      overlayTriggered = true;
       setTimeout(() => {
         fadeInOverlay();
       }, 1000); // Wait 1s after all images loaded
@@ -75,7 +74,6 @@ function fillScreenWithImages() {
       img.src = shuffled[imgIndex];
       img.alt = "";
 
-      // Position in a grid cell, but with strong jitter (up to 36% of cell size)
       let x = col * cellWidth + cellWidth / 2;
       let y = row * cellHeight + cellHeight / 2;
       const strongJitterX = (pseudoRandom(imgIndex * 7) - 0.5) * cellWidth * 0.36;
@@ -83,62 +81,56 @@ function fillScreenWithImages() {
       x += strongJitterX;
       y += strongJitterY;
 
-      // Clamp to keep 90% of image inside the screen
       const marginX = baseSize * 0.45;
       const marginY = baseSize * 0.45;
       x = Math.max(marginX, Math.min(screenWidth - marginX, x));
       y = Math.max(marginY, Math.min(screenHeight - marginY, y));
 
-      // 10% larger size and jitter
-      const size = baseSize * (0.85 + 0.3 * pseudoRandom(imgIndex * 19)) * 1.10; // +10%
+      const size = baseSize * (0.85 + 0.3 * pseudoRandom(imgIndex * 19)) * 1.10;
       img.style.width = `${size}px`;
       img.style.height = "auto";
       img.style.position = "absolute";
       img.style.left = `${x - size / 2}px`;
       img.style.top = `${y - size / 2}px`;
 
-      // Rotation & z-index
       const angle = -35 + 70 * pseudoRandom(imgIndex * 23);
       img.style.transform = `rotate(${angle}deg)`;
       img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(imgIndex * 29))}`;
 
-      // Fade-in initial state
       img.style.opacity = "0";
       img.style.transition = "opacity 1.7s cubic-bezier(0.63,0.01,0.33,1.01)";
 
       img.addEventListener('load', () => {
         loadedCount++;
-        checkAllLoadedAndFadeOverlay();
+        tryTriggerOverlay();
       });
 
-      // For cached images: trigger load if already loaded
+      // If cached, count immediately (this must be after .onload)
       if (img.complete) {
         loadedCount++;
-        checkAllLoadedAndFadeOverlay();
+        tryTriggerOverlay();
       }
 
       container.appendChild(img);
 
-      // Use requestAnimationFrame for reliable fade-in
       requestAnimationFrame(() => {
         img.style.opacity = "1";
       });
 
       imgIndex++;
-      allImages.push(img);
     }
   }
 }
 
 function fadeInOverlay() {
-  // Choose overlay image based on screen width
-  const isMobile = window.innerWidth <= 700; // You may adjust this threshold if needed
-  const overlaySrc = isMobile ? 'image overlaymobile.jpg' : 'image overlaydesktop.jpg';
+  // Use overlaymobile.jpg for mobile, overlaydesktop.jpg for desktop
+  const isMobile = window.innerWidth <= 700; // Adjust threshold as needed
+  const overlaySrc = isMobile ? 'overlaymobile.jpg' : 'overlaydesktop.jpg';
 
-  let overlay = document.getElementById('overlay-desktop-img');
+  let overlay = document.getElementById('overlay-img');
   if (!overlay) {
     overlay = document.createElement('img');
-    overlay.id = 'overlay-desktop-img';
+    overlay.id = 'overlay-img';
     overlay.src = overlaySrc;
     overlay.alt = "Overlay";
     overlay.style.position = "fixed";
@@ -151,13 +143,12 @@ function fadeInOverlay() {
     overlay.style.pointerEvents = "none";
     overlay.style.transition = "opacity 2.5s cubic-bezier(0.63,0.01,0.33,1.01)";
     document.body.appendChild(overlay);
-    // When loaded, fade in
+
     overlay.onload = () => {
       requestAnimationFrame(() => {
         overlay.style.opacity = "1";
       });
     };
-    // If already loaded (cached), fade in immediately
     if (overlay.complete) {
       requestAnimationFrame(() => {
         overlay.style.opacity = "1";
