@@ -19,8 +19,8 @@ body {
 .image-container img {
   position: absolute;
   object-fit: contain;
-  will-change: transform;
   border-radius: 6px;
   user-select: none;
   box-shadow: 0 2px 16px 0 rgba(0,0,0,0.07);
+  will-change: transform;
 }
