@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  background: #fff;
+  background: #000; /* fallback if background.jpg is missing */
   overflow: hidden;
   height: 100vh;
   width: 100vw;

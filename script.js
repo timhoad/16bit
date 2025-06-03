@@ -1,5 +1,5 @@
 const container = document.getElementById('imageContainer');
-const imageCount = 18; // Number of distinct images
+const imageCount = 18;
 const totalImages = 36; // Use each image twice
 
 // Fill array with each image twice, in order
@@ -38,27 +38,37 @@ function fillScreenWithImages() {
   // Shuffle images deterministically so repeats are not next to each other
   const shuffled = seededShuffle(images, 12345);
 
+  // Divide the screen into a grid for even distribution
+  const gridCols = 6;
+  const gridRows = 6;
+  const cellWidth = screenWidth / gridCols;
+  const cellHeight = screenHeight / gridRows;
+
   for (let i = 0; i < shuffled.length; i++) {
     const img = document.createElement('img');
     img.src = shuffled[i];
     img.alt = "";
 
-    // Deterministic "random" for position, size, angle
-    const prSeed = 5555 + i * 777;
-    const px = pseudoRandom(prSeed + 1);
-    const py = pseudoRandom(prSeed + 2);
+    // Which grid cell?
+    const col = i % gridCols;
+    const row = Math.floor(i / gridCols);
 
-    // Size: 34% - 65% of the smaller dimension (increased from previous 18-40)
-    const minSize = Math.min(screenWidth, screenHeight) * 0.34;
-    const maxSize = Math.min(screenWidth, screenHeight) * 0.65;
+    // Deterministic offset within cell for organic look
+    const prSeed = 5555 + i * 777;
+    const offsetX = pseudoRandom(prSeed + 1) * (cellWidth * 0.35) - cellWidth * 0.175;
+    const offsetY = pseudoRandom(prSeed + 2) * (cellHeight * 0.35) - cellHeight * 0.175;
+
+    // Make images large so they overlap, but not so large they always spill off the screen
+    const minSize = Math.min(cellWidth, cellHeight) * 2.0;
+    const maxSize = Math.min(cellWidth, cellHeight) * 2.7;
     const size = minSize + (maxSize - minSize) * pseudoRandom(prSeed + 3);
 
     img.style.width = `${size}px`;
     img.style.height = "auto";
 
-    // X, Y: from -10% size (left/top overflow) to (screen - 90% size) (right/bottom overflow)
-    const x = -0.10 * size + px * (screenWidth - 0.80 * size);
-    const y = -0.10 * size + py * (screenHeight - 0.80 * size);
+    // Compute position so images are centered in their cell plus offset
+    const x = col * cellWidth + (cellWidth - size) / 2 + offsetX;
+    const y = row * cellHeight + (cellHeight - size) / 2 + offsetY;
     img.style.left = `${x}px`;
     img.style.top = `${y}px`;
 
