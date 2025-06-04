@@ -1,6 +1,5 @@
 const container = document.getElementById('imageContainer');
 const imageCount = 18;
-const totalImages = 36;
 
 // Fill array with each image twice, in order
 const images = [];
@@ -127,6 +126,8 @@ function fadeInOverlay() {
   const oldOverlay = document.getElementById('overlay-img');
   if (oldOverlay) oldOverlay.remove();
 
+  removeEmailHotspot(); // Remove any previous hotspot
+
   const isMobile = window.innerWidth <= 700;
   const overlaySrc = isMobile ? 'overlaymobile.jpg' : 'overlaydesktop.jpg';
 
@@ -141,21 +142,87 @@ function fadeInOverlay() {
   overlay.style.height = "100vh";
   overlay.style.zIndex = "9999";
   overlay.style.opacity = "0";
-  overlay.style.pointerEvents = "none";
+  overlay.style.pointerEvents = "auto";
   overlay.style.transition = "opacity 3.25s cubic-bezier(0.63,0.01,0.33,1.01)";
   document.body.appendChild(overlay);
 
   // Always fade in after DOM paint, regardless of cache state or onload
-  // Double requestAnimationFrame ensures browser paints opacity 0 before changing to 0.98
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       overlay.style.opacity = "0.98";
     });
   });
+
+  // Add the clickable email hotspot
+  addEmailHotspot(isMobile);
+}
+
+// Remove the hotspot if it exists
+function removeEmailHotspot() {
+  const oldHotspot = document.getElementById('email-hotspot');
+  if (oldHotspot) oldHotspot.remove();
+}
+
+// Add the hotspot for the email link
+function addEmailHotspot(isMobile) {
+  removeEmailHotspot();
+
+  // Adjust these values to match the email position in your overlay images!
+  let left, bottom, width, height;
+
+  if (isMobile) {
+    // Example values for mobile overlay
+    left = "calc(50vw - 90px)";
+    bottom = "20px";
+    width = "180px";
+    height = "28px";
+  } else {
+    // Example values for desktop overlay
+    left = "calc(50vw - 100px)";
+    bottom = "30px";
+    width = "200px";
+    height = "30px";
+  }
+
+  const link = document.createElement('a');
+  link.href = 'mailto:contact@16-bit.gg';
+  link.id = 'email-hotspot';
+  link.setAttribute('style', `
+    display:block;
+    position:fixed;
+    left:${left};
+    bottom:${bottom};
+    width:${width};
+    height:${height};
+    z-index:10000;
+    cursor:pointer;
+    background:rgba(0,0,0,0);
+    pointer-events:auto;
+    outline:none;
+  `);
+  link.tabIndex = 0; // for accessibility
+
+  // Screen reader only text
+  const srText = document.createElement('span');
+  srText.textContent = 'Email contact@16-bit.gg';
+  srText.style.position = 'absolute';
+  srText.style.left = '-9999px';
+  link.appendChild(srText);
+
+  document.body.appendChild(link);
+}
+
+// Handle overlay/hotspot on resize as well
+function handleResize() {
+  clearTimeout(window.resized);
+  window.resized = setTimeout(() => {
+    fillScreenWithImages();
+    // If overlay is present, re-add hotspot for new dimensions
+    if (document.getElementById('overlay-img')) {
+      addEmailHotspot(window.innerWidth <= 700);
+    }
+  }, 100);
 }
 
 window.addEventListener('load', fillScreenWithImages);
-window.addEventListener('resize', () => {
-  clearTimeout(window.resized);
-  window.resized = setTimeout(fillScreenWithImages, 100);
-});
+window.addEventListener('resize', handleResize);
