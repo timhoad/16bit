@@ -93,8 +93,8 @@ function fillScreenWithImages() {
       img.style.top = `${y - size / 2}px`;
 
       const angle = -35 + 70 * pseudoRandom(imgIndex * 23);
-      // Start zoomed in
-      img.style.transform = `scale(1.2) rotate(${angle}deg)`;
+      // Enhanced zoom effect: 1.38 for a stronger zoom-in
+      img.style.transform = `scale(1.38) rotate(${angle}deg)`;
       img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(imgIndex * 29))}`;
 
       img.style.opacity = "0";
