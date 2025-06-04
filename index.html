@@ -1,58 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>16-bit.gg</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Add your CSS links here -->
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      background: #111;
-    }
-    #imageContainer {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      pointer-events: none;
-    }
-    footer {
-      position: fixed;
-      bottom: 16px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      z-index: 10000;
-      color: #ccc;
-      font-size: 1.1em;
-      letter-spacing: 0.02em;
-      pointer-events: auto;
-    }
-    footer a {
-      color: #89f;
-      text-decoration: underline;
-      transition: color 0.2s;
-    }
-    footer a:hover {
-      color: #fff;
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mosaic Animation Homepage</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="imageContainer"></div>
-
-  <footer>
-    <p>
-      Contact: <a href="mailto:contact@16-bit.gg">contact@16-bit.gg</a>
-    </p>
-  </footer>
-
+  <div class="image-container" id="imageContainer"></div>
   <script src="script.js"></script>
 </body>
 </html>
