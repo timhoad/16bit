@@ -167,7 +167,7 @@ function removeEmailHotspot() {
 function addEmailHotspot(isMobile) {
   removeEmailHotspot();
 
-  // Desktop: move up by 0.8cm. Mobile: keep as is, ensure no effect on mosaic.
+  // Desktop: move up by 0.8cm (≈30px). Mobile: keep as is, ensure no effect on mosaic.
   let left, bottom, width, height, style;
 
   if (isMobile) {
@@ -189,14 +189,13 @@ function addEmailHotspot(isMobile) {
       pointer-events:auto;
       outline:none;
       touch-action:manipulation;
-      /* Prevent accidental layout shift */
       margin:0;
       padding:0;
     `;
   } else {
-    // Example values for desktop overlay, moved up by 0.8cm
+    // Example values for desktop overlay, moved up by 0.8cm (approx 30px)
     left = "calc(50vw - 100px)";
-    bottom = "calc(30px + 0.8cm)";
+    bottom = "60px";
     width = "200px";
     height = "30px";
     style = `
