@@ -93,11 +93,12 @@ function fillScreenWithImages() {
       img.style.top = `${y - size / 2}px`;
 
       const angle = -35 + 70 * pseudoRandom(imgIndex * 23);
-      img.style.transform = `rotate(${angle}deg)`;
+      // Start zoomed in
+      img.style.transform = `scale(1.2) rotate(${angle}deg)`;
       img.style.zIndex = `${10 + Math.floor(10 * pseudoRandom(imgIndex * 29))}`;
 
       img.style.opacity = "0";
-      img.style.transition = "opacity 1.7s cubic-bezier(0.63,0.01,0.33,1.01)";
+      img.style.transition = "opacity 1.7s cubic-bezier(0.63,0.01,0.33,1.01), transform 1.7s cubic-bezier(0.63,0.01,0.33,1.01)";
 
       img.addEventListener('load', () => {
         loadedCount++;
@@ -113,6 +114,8 @@ function fillScreenWithImages() {
 
       requestAnimationFrame(() => {
         img.style.opacity = "1";
+        // Animate zoom to normal size
+        img.style.transform = `scale(1) rotate(${angle}deg)`;
       });
 
       imgIndex++;
@@ -146,10 +149,10 @@ function fadeInOverlay() {
   overlay.style.transition = "opacity 3.25s cubic-bezier(0.63,0.01,0.33,1.01)";
   document.body.appendChild(overlay);
 
-  // Always fade in after DOM paint, regardless of cache state or onload
+  // Set opacity to 96% (0.96) instead of 98%
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      overlay.style.opacity = "0.98";
+      overlay.style.opacity = "0.96";
     });
   });
 
