@@ -120,7 +120,7 @@ function fillScreenWithImages() {
   }
 }
 
-// Always create a new overlay image element for a fresh fade every time
+// Overlay fade-in and email hotspot
 function fadeInOverlay() {
   // Remove any previous overlay image if present
   const oldOverlay = document.getElementById('overlay-img');
@@ -167,8 +167,8 @@ function removeEmailHotspot() {
 function addEmailHotspot(isMobile) {
   removeEmailHotspot();
 
-  // Adjust these values to match the email position in your overlay images!
-  let left, bottom, width, height;
+  // Desktop: move up by 0.8cm. Mobile: keep as is, ensure no effect on mosaic.
+  let left, bottom, width, height, style;
 
   if (isMobile) {
     // Example values for mobile overlay
@@ -176,30 +176,50 @@ function addEmailHotspot(isMobile) {
     bottom = "20px";
     width = "180px";
     height = "28px";
+    style = `
+      display:block;
+      position:fixed;
+      left:${left};
+      bottom:${bottom};
+      width:${width};
+      height:${height};
+      z-index:10000;
+      cursor:pointer;
+      background:rgba(0,0,0,0);
+      pointer-events:auto;
+      outline:none;
+      touch-action:manipulation;
+      /* Prevent accidental layout shift */
+      margin:0;
+      padding:0;
+    `;
   } else {
-    // Example values for desktop overlay
+    // Example values for desktop overlay, moved up by 0.8cm
     left = "calc(50vw - 100px)";
-    bottom = "30px";
+    bottom = "calc(30px + 0.8cm)";
     width = "200px";
     height = "30px";
+    style = `
+      display:block;
+      position:fixed;
+      left:${left};
+      bottom:${bottom};
+      width:${width};
+      height:${height};
+      z-index:10000;
+      cursor:pointer;
+      background:rgba(0,0,0,0);
+      pointer-events:auto;
+      outline:none;
+      margin:0;
+      padding:0;
+    `;
   }
 
   const link = document.createElement('a');
   link.href = 'mailto:contact@16-bit.gg';
   link.id = 'email-hotspot';
-  link.setAttribute('style', `
-    display:block;
-    position:fixed;
-    left:${left};
-    bottom:${bottom};
-    width:${width};
-    height:${height};
-    z-index:10000;
-    cursor:pointer;
-    background:rgba(0,0,0,0);
-    pointer-events:auto;
-    outline:none;
-  `);
+  link.setAttribute('style', style);
   link.tabIndex = 0; // for accessibility
 
   // Screen reader only text
@@ -209,6 +229,7 @@ function addEmailHotspot(isMobile) {
   srText.style.left = '-9999px';
   link.appendChild(srText);
 
+  // Make sure the hotspot is a direct child of body, NOT inside the mosaic container
   document.body.appendChild(link);
 }
 
